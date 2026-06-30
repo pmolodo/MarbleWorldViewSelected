@@ -4,8 +4,9 @@ using UnityEngine;
 namespace ViewSelected
 {
     /// <summary>
-    /// Adds a Ctrl-F hotkey that views the currently selected object: it moves the
-    /// camera to look at the object from the game's built-in fixed back-off distance.
+    /// Adds a V hotkey (Ctrl not held) that views the currently selected object: it
+    /// moves the camera to look at the object from the game's built-in fixed back-off
+    /// distance.
     ///
     /// This is the "simplest" version - it reuses the game's existing
     /// CameraController.CenterOnPoint(), which damps the camera to
