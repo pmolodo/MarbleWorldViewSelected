@@ -19,13 +19,16 @@ namespace ViewSelected
         public const string PluginName = "View Selected";
         public const string PluginVersion = "1.0.0";
 
-        // The key that, while Ctrl is held, views the selection.
-        private const KeyCode ViewKey = KeyCode.F;
+        // The key that, while Ctrl is NOT held, views the selection.
+        // Plain V is unused in-game (only the game's Ctrl+V = Paste is wired), so it
+        // is free to overload - mirroring how the game reuses r for QuickRotate while
+        // Ctrl+R is Redo.
+        private const KeyCode ViewKey = KeyCode.V;
 
         private void Awake()
         {
             Logger.LogInfo(
-                $"{PluginName} v{PluginVersion} loaded. Press Ctrl+{ViewKey} to view the selected object.");
+                $"{PluginName} v{PluginVersion} loaded. Press {ViewKey} to view the selected object.");
         }
 
         private void Update()
@@ -36,8 +39,10 @@ namespace ViewSelected
                 return;
             }
 
+            // Require Ctrl to NOT be held: plain V views the selection, while Ctrl+V
+            // is left to the game's Paste command.
             bool ctrlHeld = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-            if (!ctrlHeld)
+            if (ctrlHeld)
             {
                 return;
             }
