@@ -11,8 +11,18 @@ currently selected object.
   by BepInEx and calls the game's existing public methods. We do NOT recompile
   the game's `Assembly-CSharp.dll`.
 - Current scope is the simplest version: on V (Ctrl not held), find the selected
-  object, compute its combined renderer-bounds center, and call the game's
-  built-in `CameraController.instance.CenterOnPoint(...)` (fixed 5-unit pullback).
+  object, compute its combined renderer-bounds center, and drive the game's
+  built-in camera move (SmoothDamp to `focusPoint - cameraForward * 5f`, a fixed
+  5-unit pullback).
+- **Bypasses the `cameraFollowBuild` gate:** `CameraController.CenterOnPoint(...)`
+  no-ops unless the in-game "camera follow build" setting is on, but the actual
+  move (`CameraController.Update`) is gated only on the private
+  `isMovingToCenterOnObject`, not on the setting. So instead of calling
+  `CenterOnPoint`, the plugin arms `CenterOnPoint`'s two private fields directly
+  via reflection (`focusObjectPosition`, `isMovingToCenterOnObject`) so V works
+  regardless of that setting. If those fields cannot be resolved (game update), it
+  falls back to the public `CenterOnPoint` (which respects the setting) and logs a
+  one-time warning in `Awake`.
 - **Key choice:** plain V is unused in-game (only the game's `Ctrl+V` = Paste is
   wired), so V is free to overload - mirroring how the game reuses `r` for
   QuickRotate while `Ctrl+R` is Redo. We explicitly bail when Ctrl is held so
@@ -69,11 +79,17 @@ currently selected object.
 ## Game APIs this plugin relies on (all public)
 
 - `CameraController.instance` - singleton. `CenterOnPoint(Vector3)`
-  (`CameraController.cs:371`) smooth-damps the camera to
-  `focusPoint - cameraForward * 5f`.
-  - **Caveat:** `CenterOnPoint` no-ops unless `GameplaySettings.cameraFollowBuild != 0`
-    (the in-game "camera follow build" setting). If the plugin loads but the
-    camera does not move, this gate is the first thing to check.
+  (`CameraController.cs:371`) sets `focusObjectPosition = focusPoint - cameraForward * 5f`
+  and `isMovingToCenterOnObject = true`; the controller's `Update`
+  (`CameraController.cs:314`) then smooth-damps `transform.position` toward
+  `focusObjectPosition` while that flag is set.
+  - **Note:** `CenterOnPoint` no-ops unless `GameplaySettings.cameraFollowBuild != 0`
+    (the in-game "camera follow build" setting). The plugin sidesteps this gate by
+    setting the two **private** fields directly via reflection
+    (`focusObjectPosition` `:63`, `isMovingToCenterOnObject` `:61`) - the `Update`
+    move itself has no `cameraFollowBuild` check. So this setting no longer affects
+    the hotkey (except in the reflection-failure fallback path). `cameraFollowBuild`
+    is `public static int` (`GameplaySettings.cs:54`, default 1, PlayerPrefs-backed).
 - `SelectableManager.instance` - singleton. `GetHasSelectablesSelected()` and
   `GetFirstSelected()`. `GetFirstSelected()` indexes `_selectedSelectables[0]`
   with no empty-check, so only call it after `GetHasSelectablesSelected()` is true.
@@ -117,12 +133,15 @@ Build gotchas seen in this project:
 1. Launch Marble World; check `BepInEx\LogOutput.log` for
    `View Selected v1.0.0 loaded`.
 2. Select an object, press V -> camera should smooth-pan to frame it; log shows a
-   `viewing '<name>' at <pos>` line.
+   `viewing '<name>' at <pos>` line. This works with the in-game "camera follow
+   build" setting either on or off (the plugin bypasses that gate).
 3. V with nothing selected -> no movement, no exception ("nothing selected").
 4. Focus a text field (e.g. rename panel), type a word containing "v" -> camera
    does NOT move (typing guard). Defocus, then V works again.
 5. `Ctrl+V` -> no framing (Ctrl bail); leaves the game's Paste intact.
-6. Loads but no camera movement -> check the `cameraFollowBuild` setting.
+6. Loads but no camera movement -> check `BepInEx\LogOutput.log` for the
+   reflection-failure warning; if present, the plugin fell back to `CenterOnPoint`
+   and is again subject to the `cameraFollowBuild` setting.
 
 ## Background: the abandoned AssetRipper approach
 

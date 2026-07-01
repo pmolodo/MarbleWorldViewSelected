@@ -9,10 +9,12 @@ namespace ViewSelected
     /// moves the camera to look at the object from the game's built-in fixed back-off
     /// distance.
     ///
-    /// This is the "simplest" version - it reuses the game's existing
-    /// CameraController.CenterOnPoint(), which damps the camera to
-    /// (focusPoint - cameraForward * 5f). A future version could compute the
-    /// distance from the object's bounding-box size + camera FOV instead.
+    /// This is the "simplest" version - it drives the game's existing camera move
+    /// (a SmoothDamp toward focusPoint - cameraForward * 5f). Rather than calling
+    /// CameraController.CenterOnPoint(), which no-ops unless the in-game "camera
+    /// follow build" setting is on, it arms CenterOnPoint's private fields directly
+    /// so the hotkey works regardless of that setting. A future version could
+    /// compute the distance from the object's bounding-box size + camera FOV instead.
     /// </summary>
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public class ViewSelectedPlugin : BaseUnityPlugin
@@ -38,6 +40,19 @@ namespace ViewSelected
         private static readonly FieldInfo ShouldTakeInputField = typeof(MWInputManager).GetField(
             "shouldTakeInput", BindingFlags.NonPublic | BindingFlags.Instance);
 
+        // CenterOnPoint arms these two private fields on CameraController; the game's
+        // Update() then SmoothDamps the camera toward focusObjectPosition whenever
+        // isMovingToCenterOnObject is true - with no cameraFollowBuild check. We set them
+        // directly to bypass CenterOnPoint's GameplaySettings.cameraFollowBuild != 0 gate,
+        // so V works regardless of the in-game "camera follow build" setting.
+        private static readonly FieldInfo FocusObjectPositionField = typeof(CameraController).GetField(
+            "focusObjectPosition", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly FieldInfo IsMovingToCenterField = typeof(CameraController).GetField(
+            "isMovingToCenterOnObject", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        // The fixed back-off distance CenterOnPoint uses: focusPoint - cameraForward * 5f.
+        private const float CameraPullback = 5f;
+
         private void Awake()
         {
             Logger.LogInfo(
@@ -49,6 +64,14 @@ namespace ViewSelected
                     "View Selected: could not resolve MWInputManager input-state fields by " +
                     "reflection (game updated?). The text-input guard is disabled; V will " +
                     "still view the selection.");
+            }
+
+            if (FocusObjectPositionField == null || IsMovingToCenterField == null)
+            {
+                Logger.LogWarning(
+                    "View Selected: could not resolve CameraController move fields by reflection " +
+                    "(game updated?). Falling back to CenterOnPoint, which is gated on the in-game " +
+                    "'camera follow build' setting.");
             }
         }
 
@@ -131,11 +154,29 @@ namespace ViewSelected
             }
 
             Vector3 focusPoint = GetFocusPoint(selected);
-            camera.CenterOnPoint(focusPoint);
-            Logger.LogInfo(
-                $"View Selected: viewing '{selected.name}' at {focusPoint}. If the camera does not " +
-                "move, check the in-game 'camera follow build' setting - CenterOnPoint is gated on " +
-                "GameplaySettings.cameraFollowBuild != 0.");
+            CenterOnPointUngated(camera, focusPoint);
+            Logger.LogInfo($"View Selected: viewing '{selected.name}' at {focusPoint}.");
+        }
+
+        /// <summary>
+        /// Moves the camera to frame focusPoint the same way CameraController.CenterOnPoint
+        /// does (SmoothDamp toward focusPoint - cameraForward * CameraPullback), but bypasses
+        /// its GameplaySettings.cameraFollowBuild != 0 gate by arming the private fields
+        /// directly. The move itself (CameraController.Update) is gated only on
+        /// isMovingToCenterOnObject, not on the setting. If the fields could not be resolved,
+        /// falls back to the public CenterOnPoint (which respects the setting).
+        /// </summary>
+        private static void CenterOnPointUngated(CameraController camera, Vector3 focusPoint)
+        {
+            if (FocusObjectPositionField == null || IsMovingToCenterField == null)
+            {
+                camera.CenterOnPoint(focusPoint);
+                return;
+            }
+
+            Vector3 target = focusPoint + -camera.transform.forward * CameraPullback;
+            FocusObjectPositionField.SetValue(camera, target);
+            IsMovingToCenterField.SetValue(camera, true);
         }
 
         /// <summary>
