@@ -10,11 +10,11 @@
     <!-- Plugin DLL only; do not copy referenced game/BepInEx assemblies to output. -->
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
 
-    <!-- Reference assemblies are vendored (gitignored) into a repo-local lib\
-         folder so no machine-specific path is committed. Populate it with
-         ./provision-refs.ps1 (downloads BepInEx; auto-discovers the game's Unity
-         and Assembly-CSharp DLLs from the Steam install). -->
-    <ManagedDir>$(MSBuildThisFileDirectory)lib</ManagedDir>
+    <!-- Reference assemblies are vendored (gitignored) into .build\lib so no
+         machine-specific path is committed. Populate it with ./provision-refs.ps1
+         (downloads BepInEx; auto-discovers the game's Unity and Assembly-CSharp
+         DLLs from the Steam install). -->
+    <ManagedDir>$(MSBuildThisFileDirectory).build\lib</ManagedDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -46,7 +46,7 @@
        instead of a cryptic "could not resolve reference" for each DLL. -->
   <Target Name="CheckVendoredReferences" BeforeTargets="ResolveAssemblyReferences">
     <Error Condition="!Exists('$(ManagedDir)\BepInEx.dll') Or !Exists('$(ManagedDir)\Assembly-CSharp.dll')"
-           Text="Reference assemblies missing from lib\. Run ./provision-refs.ps1 first (it downloads BepInEx and copies the game's Unity/Assembly-CSharp DLLs from the Steam install)." />
+           Text="Reference assemblies missing from .build\lib. Run ./provision-refs.ps1 first (it downloads BepInEx and copies the game's Unity/Assembly-CSharp DLLs from the Steam install)." />
   </Target>
 
 </Project>

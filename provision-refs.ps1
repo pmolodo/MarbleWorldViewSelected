@@ -51,12 +51,16 @@ $BepInExZipName = "BepInEx_win_${Arch}_$BepInExVersion.zip"
 $BepInExUrl = "https://github.com/BepInEx/BepInEx/releases/download/v$BepInExVersion/$BepInExZipName"
 $BepInExSha256 = $BepInExSha256ByArch[$Arch]
 
-# Persistent cache so the ~4MB BepInEx download only happens once.
-$CacheDir = Join-Path $PSScriptRoot ".build-cache"
+# All build-generated files live under a single top-level .build\ folder
+# (gitignored), so the repo root stays uncluttered.
+$BuildDir = Join-Path $PSScriptRoot ".build"
 
-# Repo-local vendored reference assemblies (gitignored). The .csproj HintPaths
-# point here via $(MSBuildThisFileDirectory)lib.
-$LibDir = Join-Path $PSScriptRoot "lib"
+# Persistent cache so the ~4MB BepInEx download only happens once.
+$CacheDir = Join-Path $BuildDir "cache"
+
+# Vendored reference assemblies (gitignored). The .csproj HintPaths point here via
+# $(MSBuildThisFileDirectory).build\lib.
+$LibDir = Join-Path $BuildDir "lib"
 # Path of BepInEx.dll inside the BepInEx release zip.
 $BepInExDllEntry = "BepInEx/core/BepInEx.dll"
 # DLLs vendored from the game's Managed folder (Unity facades + game code).

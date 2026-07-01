@@ -1,7 +1,3 @@
-bin/
-obj/
-dist/
-.build-cache/
-lib/
+.build/
 
 .claude/settings.local.json

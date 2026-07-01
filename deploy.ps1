@@ -60,7 +60,7 @@ foreach ($uninstaller in $uninstallers) {
 
 # --- 4. Extract the fresh AllInOne build into the game folder -----------------
 Write-Host "== Installing AllInOne build ==" -ForegroundColor Cyan
-$distDir = Join-Path $ProjectRoot "dist"
+$distDir = Join-Path $BuildDir "dist"
 $allInOne = Get-ChildItem -Path $distDir -Filter "$AssemblyName-AllInOne-*.zip" |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1

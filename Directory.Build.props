@@ -1,0 +1,13 @@
+<Project>
+
+  <!-- Keep all build-generated output under a single top-level .build\ folder
+       (gitignored) instead of scattering bin\ and obj\ at the repo root.
+       BaseIntermediateOutputPath (obj) must be set here in Directory.Build.props,
+       not in the .csproj, because it is consumed very early - during restore,
+       before the project body is evaluated. -->
+  <PropertyGroup>
+    <BaseOutputPath>$(MSBuildThisFileDirectory).build\bin\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory).build\obj\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+</Project>

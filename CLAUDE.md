@@ -146,41 +146,45 @@ frames the selected object, plus a **middle-mouse drag** orbit).
 ## Build and deploy
 
 Requires the .NET SDK (`dotnet`; 5.0.416 was used). The project targets
-`netstandard2.0`. The build's reference assemblies (`BepInEx.dll`, `UnityEngine*.dll`,
-`Assembly-CSharp.dll`) are vendored into a repo-local, gitignored `lib\`, and the
-csproj references them via `<HintPath>$(MSBuildThisFileDirectory)lib\...</HintPath>`
+`netstandard2.0`. **All build-generated files live under a single gitignored
+`.build\` folder** (`Directory.Build.props` redirects `bin`->`.build\bin` and
+`obj`->`.build\obj`; the scripts put `dist`, `cache`, and `lib` there too), so the
+repo root stays clean. The build's reference assemblies (`BepInEx.dll`,
+`UnityEngine*.dll`, `Assembly-CSharp.dll`) are vendored into `.build\lib`, and the
+csproj references them via `<HintPath>$(MSBuildThisFileDirectory).build\lib\...</HintPath>`
 with `<Private>false</Private>` (not copied to output). No machine-specific path
 is committed; there is no dependency on where (or whether) BepInEx is installed
 in the game folder at build time.
 
-**Provision `lib\` once** with `provision-refs.ps1`:
-- Downloads + SHA256-verifies the pinned BepInEx zip (cached in `.build-cache\`)
+**Provision `.build\lib` once** with `provision-refs.ps1`:
+- Downloads + SHA256-verifies the pinned BepInEx zip (cached in `.build\cache\`)
   and extracts `BepInEx.dll`.
 - Auto-discovers the Marble World install from Steam (registry `Valve\Steam` +
   `libraryfolders.vdf`, AppID `1491340`) and copies the Unity + `Assembly-CSharp`
-  DLLs. A game install is only needed here, and only until `lib\` is populated;
-  `Assembly-CSharp.dll` is proprietary and cannot be downloaded, so it must come
-  from an install. If a required DLL is missing, a csproj `<Target>` fails the
-  build early telling you to run this script.
+  DLLs. A game install is only needed here, and only until `.build\lib` is
+  populated; `Assembly-CSharp.dll` is proprietary and cannot be downloaded, so it
+  must come from an install. If a required DLL is missing, a csproj `<Target>`
+  fails the build early telling you to run this script.
 
 ```sh
 # from the project root (C:\Projects\Games\Marble World\Mods\ViewSelected)
-./build.ps1                 # provisions lib\ (idempotent) then dotnet build
+./build.ps1                 # provisions .build\lib (idempotent) then dotnet build
 # then deploy:
-cp "bin/Release/netstandard2.0/ViewSelected.dll" \
+cp ".build/bin/Release/netstandard2.0/ViewSelected.dll" \
    "C:/Apps (x86)/Games/Steam/steamapps/common/Marble World/BepInEx/plugins/ViewSelected.dll"
 ```
 
 Script chain (each dot-sources the previous to reuse its constants/functions):
 `deploy.ps1` / `make-release.ps1` -> `build.ps1` (`Invoke-PluginBuild`: provision +
 `dotnet build`) -> `provision-refs.ps1` (`Initialize-BuildReferences`, Steam
-discovery `Find-MarbleWorldInstallDir`, BepInEx download constants,
-`Get-BepInExArchive`). You can also run `dotnet build -c Release` directly once
-`lib\` is provisioned, or `./provision-refs.ps1` to just populate `lib\`.
+discovery `Find-MarbleWorldInstallDir`, the `$BuildDir` layout, BepInEx download
+constants, `Get-BepInExArchive`). You can also run `dotnet build -c Release`
+directly once `.build\lib` is provisioned, or `./provision-refs.ps1` to just
+populate it.
 
 For a full-cycle test install, run **`./deploy.ps1`**: it runs `make-release.ps1`,
 finds the Steam install (`Find-MarbleWorldInstallDir`, cached in
-`.build-cache\marble-world-install.txt`), runs the previous copy's uninstaller if
+`.build\cache\marble-world-install.txt`), runs the previous copy's uninstaller if
 one is present, then extracts the fresh AllInOne zip into the game folder. Then
 just launch the game.
 

@@ -45,7 +45,7 @@ function Invoke-PluginBuild {
         throw "dotnet build failed with exit code $LASTEXITCODE"
     }
 
-    $dllPath = Join-Path $PSScriptRoot "bin\$Configuration\$TargetFramework\$AssemblyName.dll"
+    $dllPath = Join-Path $BuildDir "bin\$Configuration\$TargetFramework\$AssemblyName.dll"
     if (-not (Test-Path $dllPath)) {
         throw "Expected build output not found: $dllPath"
     }

@@ -112,7 +112,7 @@ $Version = $versionMatch.Matches[0].Groups[1].Value
 Write-Host "Building $AssemblyName v$Version ($Configuration)..."
 $DllPath = Invoke-PluginBuild -Configuration $Configuration
 
-$OutputPath = Join-Path $ProjectRoot $OutputDir
+$OutputPath = Join-Path $BuildDir $OutputDir
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
 
 # Renamed README copy included in every release zip, with the <version>
