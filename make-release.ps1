@@ -35,12 +35,11 @@ Set-Location $ProjectRoot
 
 $SourceFile = Join-Path $ProjectRoot "ViewSelectedPlugin.cs"
 
-# Auxiliary files at a zip's root are named "<component>-<type>" so they group
-# and sort by the component they belong to. Our plugin's files use this prefix;
-# BepInEx's own renamable files use the "BepInEx-" prefix. (Functional files
-# doorstop/BepInEx require by exact name - winhttp.dll, doorstop_config.ini,
-# .doorstop_version - are left untouched, as is the plugin DLL itself.)
-$PluginFilePrefix = "ViewSelectedPlugin"
+# Auxiliary files at a zip's root are named "<component>-<type>" ($PluginFilePrefix
+# from build.ps1) so they group and sort by the component they belong to. Our
+# plugin's files use that prefix; BepInEx's own renamable files use the "BepInEx-"
+# prefix. (Functional files doorstop/BepInEx require by exact name - winhttp.dll,
+# doorstop_config.ini, .doorstop_version - are left untouched, as is the plugin DLL.)
 
 # README is shipped in both zips. The all-in-one archive extracts to the game
 # install root, so it is renamed to make clear which mod it documents.

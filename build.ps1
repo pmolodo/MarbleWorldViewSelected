@@ -26,6 +26,9 @@ $ErrorActionPreference = "Stop"
 
 $AssemblyName = "ViewSelected"
 $TargetFramework = "netstandard2.0"
+# Prefix for this plugin's shipped auxiliary files (README, manifest, uninstaller,
+# third-party notices). Shared by make-release.ps1 and deploy.ps1.
+$PluginFilePrefix = "ViewSelectedPlugin"
 
 
 function Invoke-PluginBuild {

@@ -172,12 +172,19 @@ cp "bin/Release/netstandard2.0/ViewSelected.dll" \
 ```
 
 Script chain (each dot-sources the previous to reuse its constants/functions):
-`make-release.ps1` -> `build.ps1` (`Invoke-PluginBuild`: provision + `dotnet build`)
--> `provision-refs.ps1` (`Initialize-BuildReferences`, BepInEx download constants,
+`deploy.ps1` / `make-release.ps1` -> `build.ps1` (`Invoke-PluginBuild`: provision +
+`dotnet build`) -> `provision-refs.ps1` (`Initialize-BuildReferences`, Steam
+discovery `Find-MarbleWorldInstallDir`, BepInEx download constants,
 `Get-BepInExArchive`). You can also run `dotnet build -c Release` directly once
 `lib\` is provisioned, or `./provision-refs.ps1` to just populate `lib\`.
 
-Iterate: edit -> `dotnet build -c Release` -> copy DLL -> relaunch the game.
+For a full-cycle test install, run **`./deploy.ps1`**: it runs `make-release.ps1`,
+finds the Steam install (`Find-MarbleWorldInstallDir`, cached in
+`.build-cache\marble-world-install.txt`), runs the previous copy's uninstaller if
+one is present, then extracts the fresh AllInOne zip into the game folder. Then
+just launch the game.
+
+Iterate: edit -> `./build.ps1` -> copy DLL (or `./deploy.ps1`) -> relaunch the game.
 
 Build gotchas seen in this project:
 - The csproj must reference the **`UnityEngine` facade assembly**

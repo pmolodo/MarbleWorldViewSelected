@@ -66,6 +66,8 @@ $ManagedDllNames = @(
     "UnityEngine.InputLegacyModule.dll",
     "UnityEngine.dll"
 )
+# Caches the discovered game install folder so repeat lookups skip Steam discovery.
+$InstallCacheFile = Join-Path $CacheDir "marble-world-install.txt"
 
 
 function Get-BepInExArchive {
@@ -144,13 +146,13 @@ function Get-SteamLibraryFolders {
 }
 
 
-function Find-MarbleWorldManagedDir {
-    # Auto-discover the game's Managed folder (source of the Unity + Assembly-CSharp
-    # reference DLLs) via Steam. Throws with actionable guidance if not found -
+function Find-MarbleWorldInstallDirUncached {
+    # Auto-discover the game install folder (the one containing Marble World.exe /
+    # Marble World_Data) via Steam. Throws with actionable guidance if not found -
     # we never fall back to a hardcoded path.
     $steamPath = Get-SteamLibraryPath
     if (-not $steamPath) {
-        throw "Could not locate a Steam install (registry key Valve\Steam not found). A Marble World install is required to populate lib\ the first time."
+        throw "Could not locate a Steam install (registry key Valve\Steam not found). A Marble World install is required."
     }
 
     foreach ($lib in (Get-SteamLibraryFolders -SteamPath $steamPath)) {
@@ -166,14 +168,37 @@ function Find-MarbleWorldManagedDir {
         $installDirs.Add("Marble World")
 
         foreach ($installDir in $installDirs) {
-            $managed = Join-Path $lib "steamapps\common\$installDir\$GameDataFolder\Managed"
-            if (Test-Path (Join-Path $managed "Assembly-CSharp.dll")) {
-                return $managed
+            $gameDir = Join-Path $lib "steamapps\common\$installDir"
+            if (Test-Path (Join-Path $gameDir "$GameDataFolder\Managed\Assembly-CSharp.dll")) {
+                return $gameDir
             }
         }
     }
 
-    throw "Could not find a Marble World (Steam AppID $MarbleWorldAppId) install in any Steam library. Install the game to populate lib\ the first time; afterwards it is cached and no install is needed."
+    throw "Could not find a Marble World (Steam AppID $MarbleWorldAppId) install in any Steam library. Install the game first."
+}
+
+
+function Find-MarbleWorldInstallDir {
+    # Cached wrapper around the Steam discovery: reuse the previously found install
+    # folder if it still looks valid, otherwise rediscover and re-cache it.
+    if (Test-Path -LiteralPath $InstallCacheFile) {
+        $cached = (Get-Content -LiteralPath $InstallCacheFile -Raw).Trim()
+        if ($cached -and (Test-Path (Join-Path $cached "$GameDataFolder\Managed\Assembly-CSharp.dll"))) {
+            return $cached
+        }
+    }
+    $gameDir = Find-MarbleWorldInstallDirUncached
+    New-Item -ItemType Directory -Force -Path $CacheDir | Out-Null
+    Set-Content -LiteralPath $InstallCacheFile -Value $gameDir -Encoding ascii
+    return $gameDir
+}
+
+
+function Find-MarbleWorldManagedDir {
+    # The game's Managed folder (source of the Unity + Assembly-CSharp reference
+    # DLLs), under the auto-discovered install folder.
+    return Join-Path (Find-MarbleWorldInstallDir) "$GameDataFolder\Managed"
 }
 
 
