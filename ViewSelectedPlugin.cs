@@ -1,3 +1,4 @@
+using System.Reflection;
 using BepInEx;
 using UnityEngine;
 
@@ -26,10 +27,29 @@ namespace ViewSelected
         // Ctrl+R is Redo.
         private const KeyCode ViewKey = KeyCode.V;
 
+        // The game tracks input state as private bools on MWInputManager: isDoingTextInput
+        // (true while a text field is focused; set by InputFieldHandler on EventSystem
+        // select/deselect, and mirrored onto CameraController) and shouldTakeInput (false
+        // while input is globally suppressed, e.g. during level loads). MWInputManager.Update
+        // skips gameplay input when either gate is active; we read the same fields by
+        // reflection so V honors the game's own guard.
+        private static readonly FieldInfo IsDoingTextInputField = typeof(MWInputManager).GetField(
+            "isDoingTextInput", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly FieldInfo ShouldTakeInputField = typeof(MWInputManager).GetField(
+            "shouldTakeInput", BindingFlags.NonPublic | BindingFlags.Instance);
+
         private void Awake()
         {
             Logger.LogInfo(
                 $"{PluginName} v{PluginVersion} loaded. Press {ViewKey} to view the selected object.");
+
+            if (IsDoingTextInputField == null || ShouldTakeInputField == null)
+            {
+                Logger.LogWarning(
+                    "View Selected: could not resolve MWInputManager input-state fields by " +
+                    "reflection (game updated?). The text-input guard is disabled; V will " +
+                    "still view the selection.");
+            }
         }
 
         private void Update()
@@ -48,7 +68,41 @@ namespace ViewSelected
                 return;
             }
 
+            // Mirror the game's own input gate: don't view while the user is typing in a
+            // text field or while input is globally suppressed.
+            if (!IsGameAcceptingInput())
+            {
+                return;
+            }
+
             TryViewSelected();
+        }
+
+        /// <summary>
+        /// Mirrors the game's input gate (MWInputManager.Update): returns false while a
+        /// text field is focused (isDoingTextInput) or input is globally suppressed
+        /// (shouldTakeInput == false). If the private fields could not be resolved, the
+        /// guard degrades to "accepting" so the core hotkey keeps working.
+        /// </summary>
+        private static bool IsGameAcceptingInput()
+        {
+            MWInputManager input = MWInputManager.instance;
+            if (input == null)
+            {
+                return true;
+            }
+
+            if (ShouldTakeInputField != null && !(bool)ShouldTakeInputField.GetValue(input))
+            {
+                return false;
+            }
+
+            if (IsDoingTextInputField != null && (bool)IsDoingTextInputField.GetValue(input))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private void TryViewSelected()
