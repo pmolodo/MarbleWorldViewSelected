@@ -29,7 +29,7 @@ namespace ViewSelected
     {
         public const string PluginGuid = "com.paulm.marbleworld.viewselected";
         public const string PluginName = "View Selected";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.1.0";
 
         // The key that, while Ctrl is NOT held, views the selection.
         // Plain V is unused in-game (only the game's Ctrl+V = Paste is wired), so it
