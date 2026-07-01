@@ -51,6 +51,12 @@ $BepInExSha256 = $BepInExSha256ByArch[$Arch]
 # Persistent cache so the ~4MB BepInEx download only happens once.
 $CacheDir = Join-Path $ProjectRoot ".build-cache"
 
+# BepInEx's release zip ships no license file, so we bundle its license text
+# (MIT for the 5.x line) into the AllInOne archive to satisfy MIT's "include the
+# copyright and permission notice" requirement. Refresh this file if
+# $BepInExVersion moves to a differently-licensed release (BepInEx 6.x is LGPL).
+$BepInExLicenseFile = Join-Path $ProjectRoot "packaging\BepInEx-LICENSE.txt"
+
 
 function Get-BepInExArchive {
     # Returns the path to a hash-verified local copy of the BepInEx zip,
@@ -133,6 +139,29 @@ Expand-Archive -Path $bepInExZip -DestinationPath $stageDir
 $pluginsDir = Join-Path $stageDir "BepInEx\plugins"
 New-Item -ItemType Directory -Force -Path $pluginsDir | Out-Null
 Copy-Item $DllPath -Destination $pluginsDir
+
+# License bits for the bundled BepInEx: its release zip has no license file, so
+# ship its license text plus an attribution notice at the archive root.
+if (-not (Test-Path $BepInExLicenseFile)) {
+    throw "Missing bundled BepInEx license text: $BepInExLicenseFile"
+}
+Copy-Item $BepInExLicenseFile -Destination (Join-Path $stageDir "BepInEx-LICENSE.txt")
+
+$noticeText = @"
+THIRD-PARTY NOTICES
+===================
+
+This archive bundles BepInEx, included unmodified, under the MIT License.
+
+  Component: BepInEx $BepInExVersion ($PlatformTag, Mono)
+  License:   MIT - see BepInEx-LICENSE.txt in this archive
+  Source:    https://github.com/BepInEx/BepInEx
+  Download:  $BepInExUrl
+
+The ViewSelected plugin (BepInEx\plugins\$AssemblyName.dll) is a separate work
+under its own license; see the project's LICENSE file.
+"@
+Set-Content -Path (Join-Path $stageDir "THIRD-PARTY-NOTICES.txt") -Value $noticeText -Encoding ascii
 
 $allInOneZip = Join-Path $OutputPath "$AssemblyName-AllInOne-v${Version}_$PlatformTag.zip"
 New-Zip -Path $allInOneZip -Source (Join-Path $stageDir "*")
