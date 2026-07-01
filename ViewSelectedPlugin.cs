@@ -27,7 +27,7 @@ namespace ViewSelected
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public class ViewSelectedPlugin : BaseUnityPlugin
     {
-        public const string PluginGuid = "com.paulm.marbleworld.viewselected";
+        public const string PluginGuid = "com.molodowitch.marbleworld.viewselected";
         public const string PluginName = "View Selected";
         public const string PluginVersion = "1.1.0";
 
