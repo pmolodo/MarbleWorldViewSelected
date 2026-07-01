@@ -165,15 +165,17 @@ in the game folder at build time.
 
 ```sh
 # from the project root (C:\Projects\Games\Marble World\Mods\ViewSelected)
-./provision-refs.ps1        # once, to populate lib\ (idempotent)
-dotnet build -c Release
+./build.ps1                 # provisions lib\ (idempotent) then dotnet build
 # then deploy:
 cp "bin/Release/netstandard2.0/ViewSelected.dll" \
    "C:/Apps (x86)/Games/Steam/steamapps/common/Marble World/BepInEx/plugins/ViewSelected.dll"
 ```
 
-`make-release.ps1` calls `provision-refs.ps1` automatically before building (it
-dot-sources it to share the BepInEx download constants + `Get-BepInExArchive`).
+Script chain (each dot-sources the previous to reuse its constants/functions):
+`make-release.ps1` -> `build.ps1` (`Invoke-PluginBuild`: provision + `dotnet build`)
+-> `provision-refs.ps1` (`Initialize-BuildReferences`, BepInEx download constants,
+`Get-BepInExArchive`). You can also run `dotnet build -c Release` directly once
+`lib\` is provisioned, or `./provision-refs.ps1` to just populate `lib\`.
 
 Iterate: edit -> `dotnet build -c Release` -> copy DLL -> relaunch the game.
 

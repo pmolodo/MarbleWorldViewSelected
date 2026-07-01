@@ -28,15 +28,12 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = $PSScriptRoot
 Set-Location $ProjectRoot
 
-# Shared build config + reference provisioning (BepInEx download constants,
-# Get-BepInExArchive, Steam discovery, Initialize-BuildReferences). Dot-sourced
-# so its variables/functions are available here.
-. (Join-Path $ProjectRoot "provision-refs.ps1")
+# Build + reference provisioning. Dot-sourced so its variables/functions
+# (Invoke-PluginBuild, $AssemblyName, and - transitively via provision-refs.ps1 -
+# the BepInEx download constants + Get-BepInExArchive) are available here.
+. (Join-Path $ProjectRoot "build.ps1")
 
-$AssemblyName = "ViewSelected"
-$TargetFramework = "netstandard2.0"
 $SourceFile = Join-Path $ProjectRoot "ViewSelectedPlugin.cs"
-$DllPath = Join-Path $ProjectRoot "bin\$Configuration\$TargetFramework\$AssemblyName.dll"
 
 # Auxiliary files at a zip's root are named "<component>-<type>" so they group
 # and sort by the component they belong to. Our plugin's files use this prefix;
@@ -94,18 +91,10 @@ if (-not $versionMatch) {
 $Version = $versionMatch.Matches[0].Groups[1].Value
 
 # --- Build -------------------------------------------------------------------
-# Ensure lib\ holds the reference assemblies the .csproj needs (downloads
-# BepInEx; auto-discovers the game's Unity/Assembly-CSharp DLLs on first run).
-Initialize-BuildReferences
-
+# Provisions lib\ (downloads BepInEx; auto-discovers the game's Unity/Assembly-CSharp
+# DLLs on first run) and runs dotnet build; returns the built plugin DLL path.
 Write-Host "Building $AssemblyName v$Version ($Configuration)..."
-dotnet build -c $Configuration
-if ($LASTEXITCODE -ne 0) {
-    throw "dotnet build failed with exit code $LASTEXITCODE"
-}
-if (-not (Test-Path $DllPath)) {
-    throw "Expected build output not found: $DllPath"
-}
+$DllPath = Invoke-PluginBuild -Configuration $Configuration
 
 $OutputPath = Join-Path $ProjectRoot $OutputDir
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
