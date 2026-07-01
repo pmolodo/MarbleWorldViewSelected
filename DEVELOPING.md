@@ -90,11 +90,6 @@ Four PowerShell scripts, each runnable directly from the project root:
   pinned BepInEx zip and extracts `BepInEx.dll` into `.build\lib` for the build. At
   runtime BepInEx still lives in the game folder (plugins in `<game>\BepInEx\plugins`,
   log at `<game>\BepInEx\LogOutput.log`); the AllInOne release zip bundles it.
-- **Read-only decompiled game source** (for looking up game APIs):
-  `C:\Projects\Games\Marble World\AssetRipperExports\AssetRipper_v1.3.14_export_20260629_165353\Assets\Scripts\Assembly-CSharp`.
-  Line numbers cited below refer to these decompiled files. Prefer dnSpyEx /
-  ILSpy on the real `Assembly-CSharp.dll` for authoritative reading.
-
 
 ## Development Details
 

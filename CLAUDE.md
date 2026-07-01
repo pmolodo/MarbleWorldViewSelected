@@ -16,3 +16,9 @@ call out things that are easy to get wrong.
   install. All build output goes under the gitignored `.build\`. Full details,
   including first-time `.build\lib` provisioning, are in
   [DEVELOPING.md](DEVELOPING.md#build-and-deploy).
+
+- **Read-only decompiled game source** (for looking up game APIs):
+  I used AssetRipper to decompile the game source.  I placed mine at:
+  `<project-root>\..\..\AssetRipperExports\AssetRipper_v1.3.14_export_20260629_165353\Assets\Scripts\Assembly-CSharp`.
+  Line numbers cited below refer to these decompiled files. Prefer dnSpyEx /
+  ILSpy on the real `Assembly-CSharp.dll` for authoritative reading.
