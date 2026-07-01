@@ -7,7 +7,8 @@ A [BepInEx](https://github.com/BepInEx/BepInEx) plugin for the Unity game
   selected object.
 - **Middle-mouse drag** orbits the camera (3D-modeler style) around the selection.
 
-The game itself is never modified - the plugin is loaded at runtime by BepInEx.
+No original game installation files are altered - the mod is purely additive,
+loaded at runtime by BepInEx.
 
 ## Installation
 
@@ -75,15 +76,9 @@ If you prefer to do it by hand, just delete every path listed in
 
 ## Building from source
 
-Requires the .NET SDK. From the project root:
-
-```sh
-dotnet build -c Release
-```
-
-`make-release.ps1` builds the plugin and produces the two release zips described
-above. See [CLAUDE.md](CLAUDE.md) for full build, deploy, and implementation
-details.
+Requires the .NET SDK. From the project root, `./build.ps1` builds the plugin and
+`make-release.ps1` produces the two release zips described above. See
+[DEVELOPING.md](DEVELOPING.md) for full build, deploy, and implementation details.
 
 ## License
 

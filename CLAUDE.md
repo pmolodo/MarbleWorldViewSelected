@@ -9,11 +9,9 @@ call out things that are easy to get wrong.
 
 - **Never recompile the game.** This is a BepInEx plugin that calls the game's
   existing public methods at runtime; the game's `Assembly-CSharp.dll` is never
-  rebuilt. See "What this project is" in [DEVELOPING.md](DEVELOPING.md).
-- **Do not pursue the AssetRipper "rebuild the whole game" approach** - it is an
-  abandoned dead end (see "Background" in [DEVELOPING.md](DEVELOPING.md)). The
-  decompiled scripts under `AssetRipperExports\...` are a read-only API reference
-  only; prefer dnSpyEx / ILSpy on the real `Assembly-CSharp.dll`.
+  rebuilt, only read for reference (prefer dnSpyEx / ILSpy on the real DLL, or the
+  decompiled scripts under `AssetRipperExports\...`). See "What this project is"
+  in [DEVELOPING.md](DEVELOPING.md).
 - **Build/deploy:** `./build.ps1` to build, `./deploy.ps1` for a full-cycle test
   install. All build output goes under the gitignored `.build\`. Full details,
   including first-time `.build\lib` provisioning, are in

@@ -8,13 +8,12 @@ user-facing description, installation, and usage.
 ## What this project is
 
 - A small C# class-library (`.csproj`) that compiles to `ViewSelected.dll`, a
-  BepInEx plugin. The game is left untouched; the plugin is injected at runtime
-  by BepInEx and calls the game's existing public methods. We do NOT recompile
-  the game's `Assembly-CSharp.dll`.
-- Current scope is the simplest version: on V (Ctrl not held), find the selected
-  object, compute its combined renderer-bounds center, and drive the game's
-  built-in camera move (SmoothDamp to `focusPoint - cameraForward * 5f`, a fixed
-  5-unit pullback).
+  BepInEx plugin. No original game installation files are altered; the plugin is
+  injected at runtime by BepInEx and calls the game's existing public methods. We
+  do NOT recompile the game's `Assembly-CSharp.dll`.
+- On V (Ctrl not held), the plugin finds the selected object, computes its
+  combined renderer-bounds center, and drives the game's built-in camera move
+  (SmoothDamp to `focusPoint - cameraForward * 5f`, a fixed 5-unit pullback).
 - **Bypasses the `cameraFollowBuild` gate:** `CameraController.CenterOnPoint(...)`
   no-ops unless the in-game "camera follow build" setting is on, but the actual
   move (`CameraController.Update`) is gated only on the private
@@ -24,12 +23,8 @@ user-facing description, installation, and usage.
   regardless of that setting. If those fields cannot be resolved (game update), it
   falls back to the public `CenterOnPoint` (which respects the setting) and logs a
   one-time warning in `Awake`.
-- **Key choice:** plain V is unused in-game (only the game's `Ctrl+V` = Paste is
-  wired), so V is free to overload - mirroring how the game reuses `r` for
-  QuickRotate while `Ctrl+R` is Redo. We explicitly bail when Ctrl is held so
-  `Ctrl+V` stays Paste. (The earlier `Ctrl+F` chord was dropped because `f` is
-  bound to the game's `SpawnMarbles`, which is not Ctrl-gated, so `Ctrl+F` also
-  spawned marbles.)
+- **Ctrl bail:** the plugin does nothing when Ctrl is held, so the game's
+  `Ctrl+V` (Paste) is untouched.
 - **Typing guard:** before framing, the plugin mirrors the game's own input gate
   (`MWInputManager.Update`) by reading two private bools off
   `MWInputManager.instance` via reflection - `isDoingTextInput` (true while a
@@ -66,18 +61,12 @@ user-facing description, installation, and usage.
   - **Tuning caveat:** the exact scale of `MWInputManager.GetMouseDelta()` is
     unknown, so `OrbitRotateSpeed` and the yaw/pitch signs may need adjustment to
     taste.
-- A planned future version computes the back-off distance from the object's
-  bounding-box size + camera FOV (true "fit in frame"), and may use HarmonyX to
-  intercept existing methods/input. Not needed for the current version.
 
 ## Key facts about the game (verified)
 
 - **Engine:** Unity 2020.1.13f1, **Mono** scripting backend (has
   `Marble World_Data/Managed/Assembly-CSharp.dll`, no `GameAssembly.dll`). Mono
   is the friendly case for modding.
-- It is a **DOTS / ECS** game (uses `Unity.Entities`, `Unity.Physics`,
-  `Havok.Physics`, etc.). This matters only as background - see "AssetRipper"
-  below.
 - **Active Input Handling is "Both"**: the game itself uses legacy
   `Input.GetKeyDown` (e.g. `Flipper.cs`, `LogicInput.cs`) as well as the new
   Input System, so our legacy `Input` polling (`V`/`Ctrl`, and the mouse buttons
@@ -217,13 +206,3 @@ Build gotchas seen in this project:
    and drag -> view first snaps to face it, then orbits; horizontal = azimuth,
    vertical = elevation, no flip past the poles. Release, then right-mouse look ->
    no snap. With nothing selected, MMB drag orbits a point straight ahead.
-
-## Background: the abandoned AssetRipper approach
-
-This project started as an attempt to rebuild the entire game with AssetRipper
-and edit it directly. That was a dead end - especially for a DOTS game (the
-exports hang/crash on import in Unity 2020.1, and decompiled DOTS source throws
-many compile errors). **Do not pursue the project rebuild.** The decompiled
-scripts under `AssetRipperExports\...` are kept only as a read-only API
-reference. Runtime patching via BepInEx is the correct, low-risk path (BepInEx
-is fully removable and never modifies the game's own files).
