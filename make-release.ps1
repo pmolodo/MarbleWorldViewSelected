@@ -33,6 +33,11 @@ $TargetFramework = "netstandard2.0"
 $SourceFile = Join-Path $ProjectRoot "ViewSelectedPlugin.cs"
 $DllPath = Join-Path $ProjectRoot "bin\$Configuration\$TargetFramework\$AssemblyName.dll"
 
+# README is shipped in both zips. The all-in-one archive extracts to the game
+# install root, so it is renamed to make clear which mod it documents.
+$ReadmeSource = Join-Path $ProjectRoot "README.md"
+$ReadmeReleaseName = "README-ViewSelectedPlugin.md"
+
 # Pinned BepInEx bundle for the AllInOne zip (Windows Mono builds). We pick the
 # archive matching this machine's architecture - no cross-compile for now. If
 # the version is bumped, update the URL/SHA256 for both architectures below.
@@ -118,11 +123,18 @@ if (-not (Test-Path $DllPath)) {
 $OutputPath = Join-Path $ProjectRoot $OutputDir
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
 
+# Renamed README copy included in every release zip.
+if (-not (Test-Path $ReadmeSource)) {
+    throw "Missing README: $ReadmeSource"
+}
+$ReadmeReleaseCopy = Join-Path $OutputPath $ReadmeReleaseName
+Copy-Item $ReadmeSource -Destination $ReadmeReleaseCopy -Force
+
 # --- Plugin-only zip ---------------------------------------------------------
 # The plugin is an arch-independent netstandard2.0 managed DLL, so it is tagged
 # win-dotnet rather than a specific architecture.
 $pluginOnlyZip = Join-Path $OutputPath "$AssemblyName-BepInExPluginOnly-v${Version}_win-dotnet.zip"
-New-Zip -Path $pluginOnlyZip -Source $DllPath
+New-Zip -Path $pluginOnlyZip -Source @($DllPath, $ReadmeReleaseCopy)
 
 # --- All-in-one zip (BepInEx + plugin) ---------------------------------------
 $bepInExZip = Get-BepInExArchive
@@ -163,7 +175,11 @@ under its own license; see the project's LICENSE file.
 "@
 Set-Content -Path (Join-Path $stageDir "THIRD-PARTY-NOTICES.txt") -Value $noticeText -Encoding ascii
 
+# README at the archive root, so it lands next to Marble World.exe on extract.
+Copy-Item $ReadmeReleaseCopy -Destination (Join-Path $stageDir $ReadmeReleaseName)
+
 $allInOneZip = Join-Path $OutputPath "$AssemblyName-AllInOne-v${Version}_$PlatformTag.zip"
 New-Zip -Path $allInOneZip -Source (Join-Path $stageDir "*")
 
 Remove-Item -Recurse -Force $stageDir
+Remove-Item -Force $ReadmeReleaseCopy
