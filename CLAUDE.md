@@ -1,9 +1,9 @@
 # ViewSelected - Marble World mod
 
-A BepInEx plugin for the Unity game **Marble World**. It adds two camera helpers:
-a **V** hotkey (pressed with Ctrl NOT held) that moves the camera to view
-("frame") the currently selected object, and a **middle-mouse drag** that orbits
-the camera (3D-modeler style) around the selection.
+See [README.md](README.md) for the user-facing description, installation, and
+usage. This file covers implementation and development details for the plugin: a
+BepInEx camera helper for the Unity game **Marble World** (a **V** hotkey that
+frames the selected object, plus a **middle-mouse drag** orbit).
 
 ## What this project is
 
