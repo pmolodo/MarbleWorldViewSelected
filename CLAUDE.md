@@ -1,8 +1,9 @@
 # ViewSelected - Marble World mod
 
-A BepInEx plugin for the Unity game **Marble World**. It adds a **V** hotkey
-(pressed with Ctrl NOT held) that moves the camera to view ("frame") the
-currently selected object.
+A BepInEx plugin for the Unity game **Marble World**. It adds two camera helpers:
+a **V** hotkey (pressed with Ctrl NOT held) that moves the camera to view
+("frame") the currently selected object, and a **middle-mouse drag** that orbits
+the camera (3D-modeler style) around the selection.
 
 ## What this project is
 
@@ -39,6 +40,32 @@ currently selected object.
   update renames those fields, reflection yields null, a one-time warning is
   logged in `Awake`, and the guard degrades to "accepting" so the core hotkey
   still works.
+- **Orbit (middle-mouse drag):** the game's camera is free-fly / FPS-style
+  (right-mouse = in-place look, no orbit). This adds 3D-modeler orbit on MMB drag,
+  which is unbound in-game so it never conflicts. Pivot = the selection's focus
+  point, or (nothing selected) a point `OrbitFallbackPivotDistance` (5u) straight
+  ahead. Math is spherical (azimuth around world-up, elevation clamped to +/-89deg,
+  radius fixed); sensitivity mirrors `CameraController.rotateSpeed` (2f) times
+  `GameplaySettings.cameraRotateSpeed` and honors `cameraYAxisInverted`. Each frame
+  it writes `transform.position`/`rotation` directly, which coexists with the
+  game's `Update` because that only writes rotation while the look key is held and
+  otherwise adds ~0 movement.
+  - **Pre-orbit re-aim:** on MMB-down, if the pivot is more than
+    `OrbitReaimThresholdDegrees` (~1deg) off-center or behind the camera, the view
+    is snapped to face it first (via `LookRotation`) so we never orbit around an
+    off-screen point. An already-centered pivot is left alone.
+  - **Conflict handling:** skips starting while right-mouse look is held; cancels
+    any in-flight V focus move (`isMovingToCenterOnObject = false`); respects the
+    typing / `shouldTakeInput` gate; locks+hides the cursor during the drag and
+    restores it on release.
+  - **Look-angle writeback:** orbiting moves the camera behind the game's back, so
+    on release it writes the resulting orientation into the game's private
+    `yaw`/`pitch`/`yawSmoothed`/`pitchSmoothed` (reflection) - otherwise the next
+    right-mouse look would snap to the stale angles. Degrades to a one-time warning
+    (orbit still works) if those fields cannot be resolved.
+  - **Tuning caveat:** the exact scale of `MWInputManager.GetMouseDelta()` is
+    unknown, so `OrbitRotateSpeed` and the yaw/pitch signs may need adjustment to
+    taste.
 - A planned future version computes the back-off distance from the object's
   bounding-box size + camera FOV (true "fit in frame"), and may use HarmonyX to
   intercept existing methods/input. Not needed for the current version.
@@ -53,8 +80,11 @@ currently selected object.
   below.
 - **Active Input Handling is "Both"**: the game itself uses legacy
   `Input.GetKeyDown` (e.g. `Flipper.cs`, `LogicInput.cs`) as well as the new
-  Input System, so our legacy `Input` polling (`V`, plus `Ctrl` for the bail
-  check) is safe to use.
+  Input System, so our legacy `Input` polling (`V`/`Ctrl`, and the mouse buttons
+  for orbit) is safe to use.
+- **Mouse bindings:** the input asset binds `leftButton` (Fire/select),
+  `rightButton` (AlternateFire = look), `scroll` (zoom/move object), and `delta`
+  (look), but **not `middleButton`** - so MMB is free for our orbit gesture.
 - **No user-facing keybinding/rebind UI**: bindings are hardcoded JSON in the
   new Input System's `InputActionAsset` (parsed via `MWControls`), with no
   in-game remap screen or persistence. So a hotkey cannot be "managed by the
@@ -90,6 +120,10 @@ currently selected object.
     move itself has no `cameraFollowBuild` check. So this setting no longer affects
     the hotkey (except in the reflection-failure fallback path). `cameraFollowBuild`
     is `public static int` (`GameplaySettings.cs:54`, default 1, PlayerPrefs-backed).
+  - Orbit also reads/writes these **private** `CameraController` fields by
+    reflection: `yaw` (`:27`), `pitch` (`:29`), `yawSmoothed` (`:37`),
+    `pitchSmoothed` (`:39`) - the game's free-fly look angles, written back after an
+    orbit so the next right-mouse look does not snap.
 - `SelectableManager.instance` - singleton. `GetHasSelectablesSelected()` and
   `GetFirstSelected()`. `GetFirstSelected()` indexes `_selectedSelectables[0]`
   with no empty-check, so only call it after `GetHasSelectablesSelected()` is true.
@@ -101,6 +135,8 @@ currently selected object.
   gates gameplay input on these. Only setters are public (`ShouldTakeInput`:478,
   `SetIsDoingTextInput`:498), hence reflection. `isDoingTextInput` is also
   mirrored onto `CameraController` (`CameraController.cs:53`).
+  - `GetMouseDelta()` (`MWInputManager.cs:493`, public) - orbit reuses this for the
+    mouse delta so it matches the game's look input.
 
 ## Build and deploy
 
@@ -131,7 +167,7 @@ Build gotchas seen in this project:
 ## Verify (needs the game running)
 
 1. Launch Marble World; check `BepInEx\LogOutput.log` for
-   `View Selected v1.0.0 loaded`.
+   `View Selected v1.1.0 loaded`.
 2. Select an object, press V -> camera should smooth-pan to frame it; log shows a
    `viewing '<name>' at <pos>` line. This works with the in-game "camera follow
    build" setting either on or off (the plugin bypasses that gate).
@@ -142,6 +178,10 @@ Build gotchas seen in this project:
 6. Loads but no camera movement -> check `BepInEx\LogOutput.log` for the
    reflection-failure warning; if present, the plugin fell back to `CenterOnPoint`
    and is again subject to the `cameraFollowBuild` setting.
+7. Orbit: select an object (even with the view turned away from it), hold **MMB**
+   and drag -> view first snaps to face it, then orbits; horizontal = azimuth,
+   vertical = elevation, no flip past the poles. Release, then right-mouse look ->
+   no snap. With nothing selected, MMB drag orbits a point straight ahead.
 
 ## Background: the abandoned AssetRipper approach
 
