@@ -123,12 +123,15 @@ if (-not (Test-Path $DllPath)) {
 $OutputPath = Join-Path $ProjectRoot $OutputDir
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null
 
-# Renamed README copy included in every release zip.
+# Renamed README copy included in every release zip, with the <version>
+# placeholder(s) substituted for the actual version. Written as UTF-8 without a
+# BOM, preserving the source's line endings.
 if (-not (Test-Path $ReadmeSource)) {
     throw "Missing README: $ReadmeSource"
 }
 $ReadmeReleaseCopy = Join-Path $OutputPath $ReadmeReleaseName
-Copy-Item $ReadmeSource -Destination $ReadmeReleaseCopy -Force
+$readmeText = [System.IO.File]::ReadAllText($ReadmeSource) -replace '<version>', $Version
+[System.IO.File]::WriteAllText($ReadmeReleaseCopy, $readmeText, (New-Object System.Text.UTF8Encoding($false)))
 
 # --- Plugin-only zip ---------------------------------------------------------
 # The plugin is an arch-independent netstandard2.0 managed DLL, so it is tagged
