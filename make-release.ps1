@@ -33,10 +33,17 @@ $TargetFramework = "netstandard2.0"
 $SourceFile = Join-Path $ProjectRoot "ViewSelectedPlugin.cs"
 $DllPath = Join-Path $ProjectRoot "bin\$Configuration\$TargetFramework\$AssemblyName.dll"
 
+# Auxiliary files at a zip's root are named "<component>-<type>" so they group
+# and sort by the component they belong to. Our plugin's files use this prefix;
+# BepInEx's own renamable files use the "BepInEx-" prefix. (Functional files
+# doorstop/BepInEx require by exact name - winhttp.dll, doorstop_config.ini,
+# .doorstop_version - are left untouched, as is the plugin DLL itself.)
+$PluginFilePrefix = "ViewSelectedPlugin"
+
 # README is shipped in both zips. The all-in-one archive extracts to the game
 # install root, so it is renamed to make clear which mod it documents.
 $ReadmeSource = Join-Path $ProjectRoot "README.md"
-$ReadmeReleaseName = "README-ViewSelectedPlugin.md"
+$ReadmeReleaseName = "$PluginFilePrefix-README.md"
 
 # Pinned BepInEx bundle for the AllInOne zip (Windows Mono builds). We pick the
 # archive matching this machine's architecture - no cross-compile for now. If
@@ -151,6 +158,12 @@ if (Test-Path $stageDir) {
 New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
 Expand-Archive -Path $bepInExZip -DestinationPath $stageDir
 
+# Prefix BepInEx's own root-level, renamable files so they group by component.
+$stagedChangelog = Join-Path $stageDir "changelog.txt"
+if (Test-Path $stagedChangelog) {
+    Rename-Item -Path $stagedChangelog -NewName "BepInEx-changelog.txt"
+}
+
 $pluginsDir = Join-Path $stageDir "BepInEx\plugins"
 New-Item -ItemType Directory -Force -Path $pluginsDir | Out-Null
 Copy-Item $DllPath -Destination $pluginsDir
@@ -176,7 +189,7 @@ This archive bundles BepInEx, included unmodified, under the MIT License.
 The ViewSelected plugin (BepInEx\plugins\$AssemblyName.dll) is a separate work
 under its own license; see the project's LICENSE file.
 "@
-Set-Content -Path (Join-Path $stageDir "THIRD-PARTY-NOTICES.txt") -Value $noticeText -Encoding ascii
+Set-Content -Path (Join-Path $stageDir "$PluginFilePrefix-THIRD-PARTY-NOTICES.txt") -Value $noticeText -Encoding ascii
 
 # README at the archive root, so it lands next to Marble World.exe on extract.
 Copy-Item $ReadmeReleaseCopy -Destination (Join-Path $stageDir $ReadmeReleaseName)
