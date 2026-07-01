@@ -406,23 +406,25 @@ namespace ViewSelected
         }
 
         /// <summary>
-        /// Returns the center of the selected object's combined renderer bounds,
-        /// falling back to its transform position if it has no renderers.
+        /// Returns the point to frame / orbit around: the position of the game's
+        /// transform gizmo (TranslateTool). SelectableManager.SetEditToolsLocations parks
+        /// the gizmo wherever edits pivot - the centroid of a multi-selection, or the
+        /// current snap node when Tab cycles a track's nodes - so it follows what the user
+        /// is actually manipulating far better than a single object's transform or its
+        /// renderer bounds (which can sit well off the visible object). All three tools
+        /// (Translate / Rotate / Scale) are kept co-located, so TranslateTool is
+        /// representative regardless of which one is active. Falls back to the first
+        /// selected object's position if the gizmo singleton is not yet available.
         /// </summary>
         private static Vector3 GetFocusPoint(Selectable selected)
         {
-            Renderer[] renderers = selected.GetComponentsInChildren<Renderer>();
-            if (renderers == null || renderers.Length == 0)
+            TranslateTool gizmo = TranslateTool.instance;
+            if (gizmo != null)
             {
-                return selected.transform.position;
+                return gizmo.transform.position;
             }
 
-            Bounds bounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++)
-            {
-                bounds.Encapsulate(renderers[i].bounds);
-            }
-            return bounds.center;
+            return selected.transform.position;
         }
     }
 }
