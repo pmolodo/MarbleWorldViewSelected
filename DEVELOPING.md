@@ -1,16 +1,166 @@
 # Developing ViewSelected
 
 Implementation and development details for the plugin: a BepInEx camera helper
-for the Unity game **Marble World** (a **V** hotkey that frames the selected
-object, plus a **middle-mouse drag** orbit). See [README.md](README.md) for the
+for the Unity game **Marble World**. See [README.md](README.md) for the
 user-facing description, installation, and usage.
 
-## What this project is
+## Plugin Overview
 
-- A small C# class-library (`.csproj`) that compiles to `ViewSelected.dll`, a
-  BepInEx plugin. No original game installation files are altered; the plugin is
-  injected at runtime by BepInEx and calls the game's existing public methods. We
-  do NOT recompile the game's `Assembly-CSharp.dll`.
+- This project contains a `.csproj` for building a small C# class-library
+  (`ViewSelectedPlugin.cs`) that compiles to `ViewSelected.dll`, a BepInEx plugin.
+
+## Build and deploy
+
+### Requirements:
+
+- the .NET SDK (`dotnet`; 5.0.416 was used).
+  - The project targets `netstandard2.0`.
+- Marble World installed via steam
+
+### Quick build instructions:
+
+- Run `build.ps1`
+
+### Quick build and deploy (ie, install to your Marble World game folder)
+
+- Run `deploy.ps1`
+
+### Iterate
+
+- edit -> `./deploy.ps1` -> relaunch the game
+
+### Build scripts
+
+Four PowerShell scripts, each runnable directly from the project root:
+
+- **`provision-refs.ps1`**
+  - populates `.build\lib` with the reference assemblies the build needs
+    - downloads BepInEx
+    - copies the game's Unity/`Assembly-CSharp` DLLs from your Steam install
+  - idempotent; run once
+  - normally not run directly - `build.ps1` does it for you
+- **`build.ps1`**
+  - the everyday build command
+  - provisions refs if needed, then builds `ViewSelected.dll`
+  - calls `provision-refs.ps1`
+- **`make-release.ps1`**
+  - builds, then packages the two release zips into `.build\dist`
+    - plugin-only zip
+    - AllInOne zip (BepInEx + uninstaller bundled)
+  - calls `build.ps1`
+- **`deploy.ps1`**
+  - full-cycle test install
+  - builds + packages, then installs the AllInOne build into your Marble World
+    folder (uninstalling any previous copy first)
+  - run it, then launch the game
+  - calls `make-release.ps1`
+
+## Verify (needs the game running)
+
+1. Launch Marble World; check `BepInEx\LogOutput.log` for
+   `View Selected v<version> loaded` (the `PluginVersion` from `ViewSelectedPlugin.cs`).
+2. Select an object, press V -> camera should smooth-pan to frame it; log shows a
+   `viewing '<name>' at <pos>` line. This works with the in-game "camera follow
+   build" setting either on or off (the plugin bypasses that gate).
+3. V with nothing selected -> no movement, no exception ("nothing selected").
+4. Focus a text field (e.g. rename panel), type a word containing "v" -> camera
+   does NOT move (typing guard). Defocus, then V works again.
+5. `Ctrl+V` -> no framing (Ctrl bail); leaves the game's Paste intact.
+6. Loads but no camera movement -> check `BepInEx\LogOutput.log` for the
+   reflection-failure warning; if present, the plugin fell back to `CenterOnPoint`
+   and is again subject to the `cameraFollowBuild` setting.
+7. Orbit: select an object (even with the view turned away from it), hold **MMB**
+   and drag -> view first snaps to face it, then orbits; horizontal = azimuth,
+   vertical = elevation, no flip past the poles. Release, then right-mouse look ->
+   no snap. With nothing selected, MMB drag orbits a point straight ahead.
+
+
+## Important paths
+
+- **Game install:** Discovered via steam and cached at
+  `.build/cache/marble-world-install.txt`
+- **Managed DLLs (reference assemblies):** `<game>\Marble World_Data\Managed`
+  (`Assembly-CSharp.dll`, `UnityEngine.dll`, `UnityEngine.CoreModule.dll`,
+  `UnityEngine.InputLegacyModule.dll`, ...). The build does NOT reference these
+  in place; `provision-refs.ps1` copies them into the repo-local `.build\lib` (see
+  "Build and deploy"). The game install is only auto-discovered (via Steam) to
+  populate `.build\lib` the first time.
+- **BepInEx:** BepInEx 5 (Mono). NOTE: it is not assumed to be installed in the
+  game folder - a Steam update can wipe it. `provision-refs.ps1` downloads the
+  pinned BepInEx zip and extracts `BepInEx.dll` into `.build\lib` for the build. At
+  runtime BepInEx still lives in the game folder (plugins in `<game>\BepInEx\plugins`,
+  log at `<game>\BepInEx\LogOutput.log`); the AllInOne release zip bundles it.
+- **Read-only decompiled game source** (for looking up game APIs):
+  `C:\Projects\Games\Marble World\AssetRipperExports\AssetRipper_v1.3.14_export_20260629_165353\Assets\Scripts\Assembly-CSharp`.
+  Line numbers cited below refer to these decompiled files. Prefer dnSpyEx /
+  ILSpy on the real `Assembly-CSharp.dll` for authoritative reading.
+
+
+## Development Details
+
+### Building
+- No original game installation files are altered
+  - ie, we do NOT recompile the game's `Assembly-CSharp.dll`
+- the plugin is injected at runtime by BepInEx and calls the game's existing
+  public methods.
+- all build-generated files live under a single gitignored
+  `.build\` folder
+  - `Directory.Build.props` redirects `bin`->`.build\bin` and
+    `obj`->`.build\obj`
+  - the scripts put `dist`, `cache`, and `lib` there too
+  - ...thus the repo root stays clean
+  - The build's reference assemblies (`BepInEx.dll`,
+    `UnityEngine*.dll`, `Assembly-CSharp.dll`) are vendored into `.build\lib`
+  - the csproj references them via `<HintPath>$(MSBuildThisFileDirectory).build\lib\...</HintPath>`
+    with `<Private>false</Private>` (not copied to output).
+- No machine-specific path is committed
+- there is no dependency on where (or whether) BepInEx is installed in the
+  game folder at build time.
+
+#### Build gotchas
+
+- The csproj must reference the **`UnityEngine` facade assembly**
+  (`UnityEngine.dll`), not just `CoreModule` - BepInEx's `BaseUnityPlugin`
+  resolves `MonoBehaviour` through that facade, else the build can't find
+  `MonoBehaviour`.
+- The MSBuild/`VBCSCompiler` server (and antivirus) can lock `.build\bin` /
+  `.build\obj` ("Device or resource busy"). Run `dotnet build-server shutdown`
+  before removing/renaming build output.
+
+### Scripts
+
+- Dot-source chain (each reuses the previous's constants + functions):
+  - `deploy.ps1` -> `make-release.ps1` -> `build.ps1` -> `provision-refs.ps1`
+  - `deploy.ps1` also invokes `make-release.ps1` as a subprocess
+- `provision-refs.ps1`
+  - leaf of the chain (calls no other project script); dot-sourceable
+  - run directly: runs `Initialize-BuildReferences`
+  - `Initialize-BuildReferences` - populate `.build\lib` (idempotent):
+    - download + SHA256-verify the pinned BepInEx zip (cached in `.build\cache\`),
+      then extract `BepInEx.dll`
+    - copy the Unity + `Assembly-CSharp` DLLs from the Steam install
+  - `Find-MarbleWorldInstallDir` - Steam discovery (registry `Valve\Steam` +
+    `libraryfolders.vdf`, AppID `1491340`); cached to
+    `.build\cache\marble-world-install.txt`
+  - `Get-BepInExArchive` - cached, hash-verified BepInEx zip download
+  - game install needed only to first-populate `.build\lib` (`Assembly-CSharp.dll`
+    is proprietary - cannot be downloaded)
+  - a csproj `<Target>` fails the build early if a DLL is missing from `.build\lib`
+- `build.ps1`
+  - `Invoke-PluginBuild` - runs `Initialize-BuildReferences`, then `dotnet build`;
+    returns the built DLL path
+  - `dotnet build -c Release` also works standalone once `.build\lib` is provisioned
+- `make-release.ps1`
+  - calls `Invoke-PluginBuild`
+  - packages the plugin-only and AllInOne zips (AllInOne bundles BepInEx via
+    `Get-BepInExArchive`)
+- `deploy.ps1`
+  - invokes `make-release.ps1`
+  - then `Find-MarbleWorldInstallDir`
+  - runs the previous install's uninstaller if present
+  - extracts the AllInOne zip into the game folder
+
+### viewSelected - hotkey "v"
 - On V (Ctrl not held), the plugin finds the selected object, computes its
   combined renderer-bounds center, and drives the game's built-in camera move
   (SmoothDamp to `focusPoint - cameraForward * 5f`, a fixed 5-unit pullback).
@@ -35,8 +185,11 @@ user-facing description, installation, and usage.
   update renames those fields, reflection yields null, a one-time warning is
   logged in `Awake`, and the guard degrades to "accepting" so the core hotkey
   still works.
-- **Orbit (middle-mouse drag):** the game's camera is free-fly / FPS-style
-  (right-mouse = in-place look, no orbit). This adds 3D-modeler orbit on MMB drag,
+
+### Orbit - middle mouse drag
+
+- the game's camera is free-fly / FPS-style (right-mouse = in-place look, no
+  orbit). This adds 3D-modeler orbit on MMB drag,
   which is unbound in-game so it never conflicts. Pivot = the selection's focus
   point, or (nothing selected) a point `OrbitFallbackPivotDistance` (5u) straight
   ahead. Math is spherical (azimuth around world-up, elevation clamped to +/-89deg,
@@ -45,25 +198,24 @@ user-facing description, installation, and usage.
   it writes `transform.position`/`rotation` directly, which coexists with the
   game's `Update` because that only writes rotation while the look key is held and
   otherwise adds ~0 movement.
-  - **Pre-orbit re-aim:** on MMB-down, if the pivot is more than
-    `OrbitReaimThresholdDegrees` (~1deg) off-center or behind the camera, the view
-    is snapped to face it first (via `LookRotation`) so we never orbit around an
-    off-screen point. An already-centered pivot is left alone.
-  - **Conflict handling:** skips starting while right-mouse look is held; cancels
-    any in-flight V focus move (`isMovingToCenterOnObject = false`); respects the
-    typing / `shouldTakeInput` gate; locks+hides the cursor during the drag and
-    restores it on release.
-  - **Look-angle writeback:** orbiting moves the camera behind the game's back, so
-    on release it writes the resulting orientation into the game's private
-    `yaw`/`pitch`/`yawSmoothed`/`pitchSmoothed` (reflection) - otherwise the next
-    right-mouse look would snap to the stale angles. Degrades to a one-time warning
-    (orbit still works) if those fields cannot be resolved.
-  - **Tuning caveat:** the exact scale of `MWInputManager.GetMouseDelta()` is
-    unknown, so `OrbitRotateSpeed` and the yaw/pitch signs may need adjustment to
-    taste.
+- **Pre-orbit re-aim:** on MMB-down, if the pivot is more than
+  `OrbitReaimThresholdDegrees` (~1deg) off-center or behind the camera, the view
+  is snapped to face it first (via `LookRotation`) so we never orbit around an
+  off-screen point. An already-centered pivot is left alone.
+- **Conflict handling:** skips starting while right-mouse look is held; cancels
+  any in-flight V focus move (`isMovingToCenterOnObject = false`); respects the
+  typing / `shouldTakeInput` gate; locks+hides the cursor during the drag and
+  restores it on release.
+- **Look-angle writeback:** orbiting moves the camera behind the game's back, so
+  on release it writes the resulting orientation into the game's private
+  `yaw`/`pitch`/`yawSmoothed`/`pitchSmoothed` (reflection) - otherwise the next
+  right-mouse look would snap to the stale angles. Degrades to a one-time warning
+  (orbit still works) if those fields cannot be resolved.
+- **Tuning caveat:** the exact scale of `MWInputManager.GetMouseDelta()` is
+  unknown, so `OrbitRotateSpeed` and the yaw/pitch signs may need adjustment to
+  taste.
 
-## Key facts about the game (verified)
-
+### Key facts about the game
 - **Engine:** Unity 2020.1.13f1, **Mono** scripting backend (has
   `Marble World_Data/Managed/Assembly-CSharp.dll`, no `GameAssembly.dll`). Mono
   is the friendly case for modding.
@@ -81,26 +233,7 @@ user-facing description, installation, and usage.
   hotkey is wanted later, the standard path is BepInEx
   `Config.Bind<KeyboardShortcut>`.
 
-## Important paths
-
-- **Game install:** `C:\Apps (x86)\Games\Steam\steamapps\common\Marble World`
-- **Managed DLLs (reference assemblies):** `<game>\Marble World_Data\Managed`
-  (`Assembly-CSharp.dll`, `UnityEngine.dll`, `UnityEngine.CoreModule.dll`,
-  `UnityEngine.InputLegacyModule.dll`, ...). The build does NOT reference these
-  in place; `provision-refs.ps1` copies them into the repo-local `.build\lib` (see
-  "Build and deploy"). The game install is only auto-discovered (via Steam) to
-  populate `.build\lib` the first time.
-- **BepInEx:** BepInEx 5 (Mono). NOTE: it is not assumed to be installed in the
-  game folder - a Steam update can wipe it. `provision-refs.ps1` downloads the
-  pinned BepInEx zip and extracts `BepInEx.dll` into `.build\lib` for the build. At
-  runtime BepInEx still lives in the game folder (plugins in `<game>\BepInEx\plugins`,
-  log at `<game>\BepInEx\LogOutput.log`); the AllInOne release zip bundles it.
-- **Read-only decompiled game source** (for looking up game APIs):
-  `C:\Projects\Games\Marble World\AssetRipperExports\AssetRipper_v1.3.14_export_20260629_165353\Assets\Scripts\Assembly-CSharp`.
-  Line numbers cited below refer to these decompiled files. Prefer dnSpyEx /
-  ILSpy on the real `Assembly-CSharp.dll` for authoritative reading.
-
-## Game APIs this plugin relies on (all public)
+### Game APIs this plugin relies on (all public)
 
 - `CameraController.instance` - singleton. `CenterOnPoint(Vector3)`
   (`CameraController.cs:371`) sets `focusObjectPosition = focusPoint - cameraForward * 5f`
@@ -131,78 +264,3 @@ user-facing description, installation, and usage.
   mirrored onto `CameraController` (`CameraController.cs:53`).
   - `GetMouseDelta()` (`MWInputManager.cs:493`, public) - orbit reuses this for the
     mouse delta so it matches the game's look input.
-
-## Build and deploy
-
-Requires the .NET SDK (`dotnet`; 5.0.416 was used). The project targets
-`netstandard2.0`. **All build-generated files live under a single gitignored
-`.build\` folder** (`Directory.Build.props` redirects `bin`->`.build\bin` and
-`obj`->`.build\obj`; the scripts put `dist`, `cache`, and `lib` there too), so the
-repo root stays clean. The build's reference assemblies (`BepInEx.dll`,
-`UnityEngine*.dll`, `Assembly-CSharp.dll`) are vendored into `.build\lib`, and the
-csproj references them via `<HintPath>$(MSBuildThisFileDirectory).build\lib\...</HintPath>`
-with `<Private>false</Private>` (not copied to output). No machine-specific path
-is committed; there is no dependency on where (or whether) BepInEx is installed
-in the game folder at build time.
-
-**Provision `.build\lib` once** with `provision-refs.ps1`:
-- Downloads + SHA256-verifies the pinned BepInEx zip (cached in `.build\cache\`)
-  and extracts `BepInEx.dll`.
-- Auto-discovers the Marble World install from Steam (registry `Valve\Steam` +
-  `libraryfolders.vdf`, AppID `1491340`) and copies the Unity + `Assembly-CSharp`
-  DLLs. A game install is only needed here, and only until `.build\lib` is
-  populated; `Assembly-CSharp.dll` is proprietary and cannot be downloaded, so it
-  must come from an install. If a required DLL is missing, a csproj `<Target>`
-  fails the build early telling you to run this script.
-
-```sh
-# from the project root (C:\Projects\Games\Marble World\Mods\ViewSelected)
-./build.ps1                 # provisions .build\lib (idempotent) then dotnet build
-# then deploy:
-cp ".build/bin/Release/netstandard2.0/ViewSelected.dll" \
-   "C:/Apps (x86)/Games/Steam/steamapps/common/Marble World/BepInEx/plugins/ViewSelected.dll"
-```
-
-Script chain (each dot-sources the previous to reuse its constants/functions):
-`deploy.ps1` / `make-release.ps1` -> `build.ps1` (`Invoke-PluginBuild`: provision +
-`dotnet build`) -> `provision-refs.ps1` (`Initialize-BuildReferences`, Steam
-discovery `Find-MarbleWorldInstallDir`, the `$BuildDir` layout, BepInEx download
-constants, `Get-BepInExArchive`). You can also run `dotnet build -c Release`
-directly once `.build\lib` is provisioned, or `./provision-refs.ps1` to just
-populate it.
-
-For a full-cycle test install, run **`./deploy.ps1`**: it runs `make-release.ps1`,
-finds the Steam install (`Find-MarbleWorldInstallDir`, cached in
-`.build\cache\marble-world-install.txt`), runs the previous copy's uninstaller if
-one is present, then extracts the fresh AllInOne zip into the game folder. Then
-just launch the game.
-
-Iterate: edit -> `./build.ps1` -> copy DLL (or `./deploy.ps1`) -> relaunch the game.
-
-Build gotchas seen in this project:
-- The csproj must reference the **`UnityEngine` facade assembly**
-  (`UnityEngine.dll`), not just `CoreModule`. BepInEx's `BaseUnityPlugin`
-  resolves `MonoBehaviour` through that facade, so without it the build fails to
-  find `MonoBehaviour`.
-- The MSBuild/`VBCSCompiler` server (and antivirus) can keep `.build\bin` /
-  `.build\obj` or old folders locked ("Device or resource busy"). Run
-  `dotnet build-server shutdown` before removing/renaming build output.
-
-## Verify (needs the game running)
-
-1. Launch Marble World; check `BepInEx\LogOutput.log` for
-   `View Selected v<version> loaded` (the `PluginVersion` from `ViewSelectedPlugin.cs`).
-2. Select an object, press V -> camera should smooth-pan to frame it; log shows a
-   `viewing '<name>' at <pos>` line. This works with the in-game "camera follow
-   build" setting either on or off (the plugin bypasses that gate).
-3. V with nothing selected -> no movement, no exception ("nothing selected").
-4. Focus a text field (e.g. rename panel), type a word containing "v" -> camera
-   does NOT move (typing guard). Defocus, then V works again.
-5. `Ctrl+V` -> no framing (Ctrl bail); leaves the game's Paste intact.
-6. Loads but no camera movement -> check `BepInEx\LogOutput.log` for the
-   reflection-failure warning; if present, the plugin fell back to `CenterOnPoint`
-   and is again subject to the `cameraFollowBuild` setting.
-7. Orbit: select an object (even with the view turned away from it), hold **MMB**
-   and drag -> view first snaps to face it, then orbits; horizontal = azimuth,
-   vertical = elevation, no flip past the poles. Release, then right-mouse look ->
-   no snap. With nothing selected, MMB drag orbits a point straight ahead.

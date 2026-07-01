@@ -1,7 +1,9 @@
 # View Selected - Marble World mod
 
 A [BepInEx](https://github.com/BepInEx/BepInEx) plugin for the Unity game
-**Marble World** that adds two camera helpers:
+**Marble World**
+
+Adds two camera helpers:
 
 - **V** (pressed *without* Ctrl) moves the camera to view ("frame") the currently
   selected object.
@@ -12,16 +14,16 @@ loaded at runtime by BepInEx.
 
 ## Installation
 
+First, find your Marble World install folder. In Steam: right-click **Marble
+World** -> **Manage** -> **Browse local files**.
+
 Downloads are on the
 [Releases page](https://github.com/pmolodo/MarbleWorldViewSelected/releases).
 Pick **one** of the two packages.
 
-First, find your Marble World install folder. In Steam: right-click **Marble
-World** -> **Manage** -> **Browse local files**.
-
 ### Option A: All-in-one (recommended if you don't already have BepInEx)
 
-This bundles BepInEx together with the plugin.
+This bundles BepInEx (a unity modding utility) together with this plugin
 
 1. Download `ViewSelected-AllInOne-v<version>_win-x64.zip`.
    (Marble World is 64-bit; only use the `win-x86` build if you are on a 32-bit
@@ -30,10 +32,22 @@ This bundles BepInEx together with the plugin.
    the `BepInEx` folder and `winhttp.dll` land next to `Marble World.exe`.
 3. Launch the game once so BepInEx finishes setting itself up.
 
-### Option B: Plugin only (if BepInEx 5 is already installed)
+### Option B: This plugin only (if BepInEx 5 is already installed)
 
 1. Download `ViewSelected-BepInExPluginOnly-v<version>_win-dotnet.zip`.
 2. Extract its **entire contents** into `<Marble World>/BepInEx/plugins/`.
+
+## Usage
+
+- **Frame the selection:** select an object, then press **V** (Ctrl not held).
+  The camera smoothly pans to look at it. With nothing selected, V does nothing.
+- **Orbit:** hold the **middle mouse button** and drag. Horizontal drag orbits
+  left/right (azimuth), vertical drag orbits up/down (elevation). It pivots around
+  the selected object; with nothing selected it orbits a point straight ahead. If
+  the object is off-screen when you start, the view first snaps to face it.
+- **Ctrl+V** is left alone - it remains the game's Paste.
+- Typing is safe: while a text field is focused (e.g. renaming an object),
+  pressing V types a "v" instead of moving the camera.
 
 ### Confirming it loaded
 
@@ -62,23 +76,9 @@ archive, your other BepInEx plugins) are left intact.
 If you prefer to do it by hand, just delete every path listed in
 `ViewSelectedPlugin-manifest.txt`.
 
-## Usage
-
-- **Frame the selection:** select an object, then press **V** (Ctrl not held).
-  The camera smoothly pans to look at it. With nothing selected, V does nothing.
-- **Orbit:** hold the **middle mouse button** and drag. Horizontal drag orbits
-  left/right (azimuth), vertical drag orbits up/down (elevation). It pivots around
-  the selected object; with nothing selected it orbits a point straight ahead. If
-  the object is off-screen when you start, the view first snaps to face it.
-- **Ctrl+V** is left alone - it remains the game's Paste.
-- Typing is safe: while a text field is focused (e.g. renaming an object),
-  pressing V types a "v" instead of moving the camera.
-
 ## Building from source
 
-Requires the .NET SDK. From the project root, `./build.ps1` builds the plugin and
-`make-release.ps1` produces the two release zips described above. See
-[DEVELOPING.md](DEVELOPING.md) for full build, deploy, and implementation details.
+See [DEVELOPING.md](DEVELOPING.md) for full build, deploy, and implementation details.
 
 ## License
 
