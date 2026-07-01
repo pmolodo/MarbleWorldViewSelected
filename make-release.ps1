@@ -108,6 +108,20 @@ function New-Zip {
     Write-Host "Created release: $Path"
 }
 
+function Write-Manifest {
+    # Write "<prefix>-manifest.txt" into $Dir listing every root-level entry that
+    # the zip will contain (folders get a trailing "/"), including the manifest
+    # itself. Used by the uninstall instructions. Call this last, after all other
+    # files are staged.
+    param([string]$Dir)
+    $manifestName = "$PluginFilePrefix-manifest.txt"
+    $entries = Get-ChildItem -Force -LiteralPath $Dir | ForEach-Object {
+        if ($_.PSIsContainer) { "$($_.Name)/" } else { $_.Name }
+    }
+    $entries = @($entries) + $manifestName | Sort-Object
+    Set-Content -Path (Join-Path $Dir $manifestName) -Value $entries -Encoding ascii
+}
+
 
 # --- Version -----------------------------------------------------------------
 # Pull the version straight from the source of truth (PluginVersion constant).
@@ -142,9 +156,20 @@ $readmeText = [System.IO.File]::ReadAllText($ReadmeSource) -replace '<version>',
 
 # --- Plugin-only zip ---------------------------------------------------------
 # The plugin is an arch-independent netstandard2.0 managed DLL, so it is tagged
-# win-dotnet rather than a specific architecture.
+# win-dotnet rather than a specific architecture. Staged into a folder so the
+# archive can carry its manifest.
+$pluginStageDir = Join-Path $OutputPath "_pluginonly_stage"
+if (Test-Path $pluginStageDir) {
+    Remove-Item -Recurse -Force $pluginStageDir
+}
+New-Item -ItemType Directory -Force -Path $pluginStageDir | Out-Null
+Copy-Item $DllPath -Destination $pluginStageDir
+Copy-Item $ReadmeReleaseCopy -Destination $pluginStageDir
+Write-Manifest -Dir $pluginStageDir
+
 $pluginOnlyZip = Join-Path $OutputPath "$AssemblyName-BepInExPluginOnly-v${Version}_win-dotnet.zip"
-New-Zip -Path $pluginOnlyZip -Source @($DllPath, $ReadmeReleaseCopy)
+New-Zip -Path $pluginOnlyZip -Source (Get-ChildItem -Force -LiteralPath $pluginStageDir | ForEach-Object { $_.FullName })
+Remove-Item -Recurse -Force $pluginStageDir
 
 # --- All-in-one zip (BepInEx + plugin) ---------------------------------------
 $bepInExZip = Get-BepInExArchive
@@ -194,8 +219,11 @@ Set-Content -Path (Join-Path $stageDir "$PluginFilePrefix-THIRD-PARTY-NOTICES.tx
 # README at the archive root, so it lands next to Marble World.exe on extract.
 Copy-Item $ReadmeReleaseCopy -Destination (Join-Path $stageDir $ReadmeReleaseName)
 
+# Manifest last, so it enumerates every other root-level entry (plus itself).
+Write-Manifest -Dir $stageDir
+
 $allInOneZip = Join-Path $OutputPath "$AssemblyName-AllInOne-v${Version}_$PlatformTag.zip"
-New-Zip -Path $allInOneZip -Source (Join-Path $stageDir "*")
+New-Zip -Path $allInOneZip -Source (Get-ChildItem -Force -LiteralPath $stageDir | ForEach-Object { $_.FullName })
 
 Remove-Item -Recurse -Force $stageDir
 Remove-Item -Force $ReadmeReleaseCopy

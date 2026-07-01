@@ -44,9 +44,18 @@ for a line like:
 View Selected v<version> loaded
 ```
 
-To uninstall, delete `ViewSelected.dll` from `BepInEx/plugins` (or remove the
-whole `BepInEx` folder + `winhttp.dll` to remove BepInEx as well). The game's own
-files are never touched.
+### Uninstalling
+
+Each archive includes a `ViewSelectedPlugin-manifest.txt` listing every
+top-level file and folder it adds (entries ending in `/` are folders). To
+uninstall, delete every file and folder named in that manifest from wherever you
+put them:
+
+- **All-in-one:** delete each listed entry from your Marble World install folder.
+- **Plugin only:** you copied just `ViewSelected.dll` into `BepInEx/plugins/`, so
+  only that file needs removing.
+
+The game's own files are never touched.
 
 ## Usage
 
