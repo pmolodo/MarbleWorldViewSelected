@@ -167,7 +167,7 @@ Build gotchas seen in this project:
 ## Verify (needs the game running)
 
 1. Launch Marble World; check `BepInEx\LogOutput.log` for
-   `View Selected v1.1.0 loaded`.
+   `View Selected v<version> loaded` (the `PluginVersion` from `ViewSelectedPlugin.cs`).
 2. Select an object, press V -> camera should smooth-pan to frame it; log shows a
    `viewing '<name>' at <pos>` line. This works with the in-game "camera follow
    build" setting either on or off (the plugin bypasses that gate).

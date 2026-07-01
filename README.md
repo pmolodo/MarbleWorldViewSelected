@@ -41,7 +41,7 @@ After launching the game, open `<Marble World>/BepInEx/LogOutput.log` and look
 for a line like:
 
 ```
-View Selected v1.1.0 loaded
+View Selected v<version> loaded
 ```
 
 To uninstall, delete `ViewSelected.dll` from `BepInEx/plugins` (or remove the
