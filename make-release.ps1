@@ -47,6 +47,12 @@ $PluginFilePrefix = "ViewSelectedPlugin"
 $ReadmeSource = Join-Path $ProjectRoot "README.md"
 $ReadmeReleaseName = "$PluginFilePrefix-README.md"
 
+# Uninstall scripts shipped (and listed in the manifest) at every zip's root: a
+# PowerShell uninstaller that deletes everything the manifest lists, plus a .bat
+# so it can be launched by double-click.
+$UninstallPs1Source = Join-Path $ProjectRoot "packaging\$PluginFilePrefix-uninstall.ps1"
+$UninstallBatSource = Join-Path $ProjectRoot "packaging\$PluginFilePrefix-uninstall.bat"
+
 # BepInEx bundle constants ($BepInExVersion, $Arch, $PlatformTag, $BepInExUrl,
 # $BepInExZipName, ...) and the cached-download helper (Get-BepInExArchive) come
 # from provision-refs.ps1, dot-sourced above.
@@ -67,15 +73,26 @@ function New-Zip {
     Write-Host "Created release: $Path"
 }
 
+function Add-UninstallScripts {
+    # Stage the uninstall .ps1 + .bat at $Dir's root. Call before Write-Manifest so
+    # they are enumerated into the manifest (and thus removed on uninstall).
+    param([string]$Dir)
+    Copy-Item $UninstallPs1Source -Destination $Dir
+    Copy-Item $UninstallBatSource -Destination $Dir
+}
+
 function Write-Manifest {
-    # Write "<prefix>-manifest.txt" into $Dir listing every root-level entry that
-    # the zip will contain (folders get a trailing "/"), including the manifest
-    # itself. Used by the uninstall instructions. Call this last, after all other
+    # Write "<prefix>-manifest.txt" into $Dir listing every file the zip contains
+    # (recursively; directories are NOT listed), as paths relative to $Dir, plus
+    # the manifest itself. Consumed by <prefix>-uninstall.ps1, which deletes each
+    # listed file then prunes emptied directories. Call last, after all other
     # files are staged.
     param([string]$Dir)
     $manifestName = "$PluginFilePrefix-manifest.txt"
-    $entries = Get-ChildItem -Force -LiteralPath $Dir | ForEach-Object {
-        if ($_.PSIsContainer) { "$($_.Name)/" } else { $_.Name }
+    $dirFull = (Get-Item -LiteralPath $Dir).FullName
+    $sep = [System.IO.Path]::DirectorySeparatorChar
+    $entries = Get-ChildItem -Force -Recurse -File -LiteralPath $dirFull | ForEach-Object {
+        $_.FullName.Substring($dirFull.Length).TrimStart($sep)
     }
     $entries = @($entries) + $manifestName | Sort-Object
     Set-Content -Path (Join-Path $Dir $manifestName) -Value $entries -Encoding ascii
@@ -120,6 +137,7 @@ if (Test-Path $pluginStageDir) {
 New-Item -ItemType Directory -Force -Path $pluginStageDir | Out-Null
 Copy-Item $DllPath -Destination $pluginStageDir
 Copy-Item $ReadmeReleaseCopy -Destination $pluginStageDir
+Add-UninstallScripts -Dir $pluginStageDir
 Write-Manifest -Dir $pluginStageDir
 
 $pluginOnlyZip = Join-Path $OutputPath "$AssemblyName-BepInExPluginOnly-v${Version}_win-dotnet.zip"
@@ -174,7 +192,11 @@ Set-Content -Path (Join-Path $stageDir "$PluginFilePrefix-THIRD-PARTY-NOTICES.tx
 # README at the archive root, so it lands next to Marble World.exe on extract.
 Copy-Item $ReadmeReleaseCopy -Destination (Join-Path $stageDir $ReadmeReleaseName)
 
-# Manifest last, so it enumerates every other root-level entry (plus itself).
+# Uninstall scripts at the archive root (staged before the manifest so they are
+# listed in it).
+Add-UninstallScripts -Dir $stageDir
+
+# Manifest last, so it enumerates every other file (plus itself).
 Write-Manifest -Dir $stageDir
 
 $allInOneZip = Join-Path $OutputPath "$AssemblyName-AllInOne-v${Version}_$PlatformTag.zip"

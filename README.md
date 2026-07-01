@@ -25,15 +25,14 @@ This bundles BepInEx together with the plugin.
 1. Download `ViewSelected-AllInOne-v<version>_win-x64.zip`.
    (Marble World is 64-bit; only use the `win-x86` build if you are on a 32-bit
    install.)
-2. Extract the zip directly into your Marble World install folder, so that the
-   `BepInEx` folder and `winhttp.dll` land next to `Marble World.exe`.
+2. Extract its **entire contents** into your Marble World install folder, so that
+   the `BepInEx` folder and `winhttp.dll` land next to `Marble World.exe`.
 3. Launch the game once so BepInEx finishes setting itself up.
 
 ### Option B: Plugin only (if BepInEx 5 is already installed)
 
 1. Download `ViewSelected-BepInExPluginOnly-v<version>_win-dotnet.zip`.
-2. Extract it and copy `ViewSelected.dll` into
-   `<Marble World>/BepInEx/plugins/`.
+2. Extract its **entire contents** into `<Marble World>/BepInEx/plugins/`.
 
 ### Confirming it loaded
 
@@ -46,16 +45,21 @@ View Selected v<version> loaded
 
 ### Uninstalling
 
-Each archive includes a `ViewSelectedPlugin-manifest.txt` listing every
-top-level file and folder it adds (entries ending in `/` are folders). To
-uninstall, delete every file and folder named in that manifest from wherever you
-put them:
+Each archive includes an uninstaller that removes exactly what it added. From the
+folder where you extracted the archive:
 
-- **All-in-one:** delete each listed entry from your Marble World install folder.
-- **Plugin only:** you copied just `ViewSelected.dll` into `BepInEx/plugins/`, so
-  only that file needs removing.
+- **Double-click `ViewSelectedPlugin-uninstall.bat`** (or, from a terminal, run
+  `ViewSelectedPlugin-uninstall.ps1`).
 
-The game's own files are never touched.
+It reads `ViewSelectedPlugin-manifest.txt` (which lists every file the archive
+added, including the uninstaller itself), deletes those files, then removes any
+folders left empty - so a clean run leaves nothing behind. It never deletes a
+folder that still contains other files, and never touches the folder you ran it
+from or anything above it, so the game's own files (and, for the plugin-only
+archive, your other BepInEx plugins) are left intact.
+
+If you prefer to do it by hand, just delete every path listed in
+`ViewSelectedPlugin-manifest.txt`.
 
 ## Usage
 
