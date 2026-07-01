@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 using System.Reflection;
 using BepInEx;
 using UnityEngine;

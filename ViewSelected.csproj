@@ -6,6 +6,7 @@
     <AssemblyName>ViewSelected</AssemblyName>
     <Product>View Selected</Product>
     <Description>Ctrl-F views (frames) the currently selected object in Marble World.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <!-- Plugin DLL only; do not copy referenced game/BepInEx assemblies to output. -->
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
 
