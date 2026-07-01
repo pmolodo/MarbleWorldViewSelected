@@ -228,6 +228,12 @@ Four PowerShell scripts, each runnable directly from the project root:
   hotkey is wanted later, the standard path is BepInEx
   `Config.Bind<KeyboardShortcut>`.
 
+
+### Decompiled game source (for looking up game APIs)
+
+- I used AssetRipper (v1.3.14) to decompile the game source.
+- Line numbers cited below refer to these decompiled files. 
+
 ### Game APIs this plugin relies on (all public)
 
 - `CameraController.instance` - singleton. `CenterOnPoint(Vector3)`
