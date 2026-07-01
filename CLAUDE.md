@@ -97,10 +97,15 @@ frames the selected object, plus a **middle-mouse drag** orbit).
 - **Game install:** `C:\Apps (x86)\Games\Steam\steamapps\common\Marble World`
 - **Managed DLLs (reference assemblies):** `<game>\Marble World_Data\Managed`
   (`Assembly-CSharp.dll`, `UnityEngine.dll`, `UnityEngine.CoreModule.dll`,
-  `UnityEngine.InputLegacyModule.dll`, ...).
-- **BepInEx:** BepInEx 5 (Mono) is installed in the game folder. Core DLLs in
-  `<game>\BepInEx\core`; plugins are loaded from `<game>\BepInEx\plugins`;
-  runtime log is `<game>\BepInEx\LogOutput.log`.
+  `UnityEngine.InputLegacyModule.dll`, ...). The build does NOT reference these
+  in place; `provision-refs.ps1` copies them into the repo-local `lib\` (see
+  "Build and deploy"). The game install is only auto-discovered (via Steam) to
+  populate `lib\` the first time.
+- **BepInEx:** BepInEx 5 (Mono). NOTE: it is not assumed to be installed in the
+  game folder - a Steam update can wipe it. `provision-refs.ps1` downloads the
+  pinned BepInEx zip and extracts `BepInEx.dll` into `lib\` for the build. At
+  runtime BepInEx still lives in the game folder (plugins in `<game>\BepInEx\plugins`,
+  log at `<game>\BepInEx\LogOutput.log`); the AllInOne release zip bundles it.
 - **Read-only decompiled game source** (for looking up game APIs):
   `C:\Projects\Games\Marble World\AssetRipperExports\AssetRipper_v1.3.14_export_20260629_165353\Assets\Scripts\Assembly-CSharp`.
   Line numbers cited below refer to these decompiled files. Prefer dnSpyEx /
@@ -141,17 +146,34 @@ frames the selected object, plus a **middle-mouse drag** orbit).
 ## Build and deploy
 
 Requires the .NET SDK (`dotnet`; 5.0.416 was used). The project targets
-`netstandard2.0`. Game/BepInEx assemblies are referenced via `<HintPath>` with
-`<Private>false</Private>` so they are not copied to output - only the plugin
-DLL is produced.
+`netstandard2.0`. The build's reference assemblies (`BepInEx.dll`, `UnityEngine*.dll`,
+`Assembly-CSharp.dll`) are vendored into a repo-local, gitignored `lib\`, and the
+csproj references them via `<HintPath>$(MSBuildThisFileDirectory)lib\...</HintPath>`
+with `<Private>false</Private>` (not copied to output). No machine-specific path
+is committed; there is no dependency on where (or whether) BepInEx is installed
+in the game folder at build time.
+
+**Provision `lib\` once** with `provision-refs.ps1`:
+- Downloads + SHA256-verifies the pinned BepInEx zip (cached in `.build-cache\`)
+  and extracts `BepInEx.dll`.
+- Auto-discovers the Marble World install from Steam (registry `Valve\Steam` +
+  `libraryfolders.vdf`, AppID `1491340`) and copies the Unity + `Assembly-CSharp`
+  DLLs. A game install is only needed here, and only until `lib\` is populated;
+  `Assembly-CSharp.dll` is proprietary and cannot be downloaded, so it must come
+  from an install. If a required DLL is missing, a csproj `<Target>` fails the
+  build early telling you to run this script.
 
 ```sh
 # from the project root (C:\Projects\Games\Marble World\Mods\ViewSelected)
+./provision-refs.ps1        # once, to populate lib\ (idempotent)
 dotnet build -c Release
 # then deploy:
 cp "bin/Release/netstandard2.0/ViewSelected.dll" \
    "C:/Apps (x86)/Games/Steam/steamapps/common/Marble World/BepInEx/plugins/ViewSelected.dll"
 ```
+
+`make-release.ps1` calls `provision-refs.ps1` automatically before building (it
+dot-sources it to share the BepInEx download constants + `Get-BepInExArchive`).
 
 Iterate: edit -> `dotnet build -c Release` -> copy DLL -> relaunch the game.
 

@@ -28,6 +28,11 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = $PSScriptRoot
 Set-Location $ProjectRoot
 
+# Shared build config + reference provisioning (BepInEx download constants,
+# Get-BepInExArchive, Steam discovery, Initialize-BuildReferences). Dot-sourced
+# so its variables/functions are available here.
+. (Join-Path $ProjectRoot "provision-refs.ps1")
+
 $AssemblyName = "ViewSelected"
 $TargetFramework = "netstandard2.0"
 $SourceFile = Join-Path $ProjectRoot "ViewSelectedPlugin.cs"
@@ -45,23 +50,9 @@ $PluginFilePrefix = "ViewSelectedPlugin"
 $ReadmeSource = Join-Path $ProjectRoot "README.md"
 $ReadmeReleaseName = "$PluginFilePrefix-README.md"
 
-# Pinned BepInEx bundle for the AllInOne zip (Windows Mono builds). We pick the
-# archive matching this machine's architecture - no cross-compile for now. If
-# the version is bumped, update the URL/SHA256 for both architectures below.
-$BepInExVersion = "5.4.23.5"
-$Arch = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
-# Suffix baked into the release zip names, e.g. "win-x64".
-$PlatformTag = "win-$Arch"
-$BepInExSha256ByArch = @{
-    "x64" = "82F9878551030F54657792C0740D9D51A09500EEAE1FBA21106B0C441E6732C4"
-    "x86" = "37651C79E40D6F909572A4F461AC25350BB3EF8FE7FBD29F1AA8791A33B84C82"
-}
-$BepInExZipName = "BepInEx_win_${Arch}_$BepInExVersion.zip"
-$BepInExUrl = "https://github.com/BepInEx/BepInEx/releases/download/v$BepInExVersion/$BepInExZipName"
-$BepInExSha256 = $BepInExSha256ByArch[$Arch]
-
-# Persistent cache so the ~4MB BepInEx download only happens once.
-$CacheDir = Join-Path $ProjectRoot ".build-cache"
+# BepInEx bundle constants ($BepInExVersion, $Arch, $PlatformTag, $BepInExUrl,
+# $BepInExZipName, ...) and the cached-download helper (Get-BepInExArchive) come
+# from provision-refs.ps1, dot-sourced above.
 
 # BepInEx's release zip ships no license file, so we bundle its license text
 # (MIT for the 5.x line) into the AllInOne archive to satisfy MIT's "include the
@@ -69,35 +60,6 @@ $CacheDir = Join-Path $ProjectRoot ".build-cache"
 # $BepInExVersion moves to a differently-licensed release (BepInEx 6.x is LGPL).
 $BepInExLicenseFile = Join-Path $ProjectRoot "packaging\BepInEx-LICENSE.txt"
 
-
-function Get-BepInExArchive {
-    # Returns the path to a hash-verified local copy of the BepInEx zip,
-    # downloading it to the cache only if a valid copy is not already present.
-    New-Item -ItemType Directory -Force -Path $CacheDir | Out-Null
-    $cachedZip = Join-Path $CacheDir $BepInExZipName
-
-    if (Test-Path $cachedZip) {
-        $have = (Get-FileHash -Algorithm SHA256 -Path $cachedZip).Hash
-        if ($have -eq $BepInExSha256) {
-            Write-Host "Using cached $BepInExZipName"
-            return $cachedZip
-        }
-        Write-Host "Cached $BepInExZipName failed hash check; re-downloading."
-        Remove-Item $cachedZip
-    }
-
-    Write-Host "Downloading $BepInExUrl ..."
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Invoke-WebRequest -Uri $BepInExUrl -OutFile $cachedZip
-
-    $have = (Get-FileHash -Algorithm SHA256 -Path $cachedZip).Hash
-    if ($have -ne $BepInExSha256) {
-        Remove-Item $cachedZip
-        throw "SHA256 mismatch for $BepInExZipName`n  expected $BepInExSha256`n  got      $have"
-    }
-    Write-Host "Downloaded and verified $BepInExZipName"
-    return $cachedZip
-}
 
 function New-Zip {
     param([string]$Path, [string[]]$Source)
@@ -132,6 +94,10 @@ if (-not $versionMatch) {
 $Version = $versionMatch.Matches[0].Groups[1].Value
 
 # --- Build -------------------------------------------------------------------
+# Ensure lib\ holds the reference assemblies the .csproj needs (downloads
+# BepInEx; auto-discovers the game's Unity/Assembly-CSharp DLLs on first run).
+Initialize-BuildReferences
+
 Write-Host "Building $AssemblyName v$Version ($Configuration)..."
 dotnet build -c $Configuration
 if ($LASTEXITCODE -ne 0) {

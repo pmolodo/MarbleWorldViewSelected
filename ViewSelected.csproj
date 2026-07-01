@@ -10,15 +10,16 @@
     <!-- Plugin DLL only; do not copy referenced game/BepInEx assemblies to output. -->
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
 
-    <!-- Roots for reference assemblies (the installed game + BepInEx). -->
-    <GameDir>C:\Apps (x86)\Games\Steam\steamapps\common\Marble World</GameDir>
-    <ManagedDir>$(GameDir)\Marble World_Data\Managed</ManagedDir>
-    <BepInExCore>$(GameDir)\BepInEx\core</BepInExCore>
+    <!-- Reference assemblies are vendored (gitignored) into a repo-local lib\
+         folder so no machine-specific path is committed. Populate it with
+         ./provision-refs.ps1 (downloads BepInEx; auto-discovers the game's Unity
+         and Assembly-CSharp DLLs from the Steam install). -->
+    <ManagedDir>$(MSBuildThisFileDirectory)lib</ManagedDir>
   </PropertyGroup>
 
   <ItemGroup>
     <Reference Include="BepInEx">
-      <HintPath>$(BepInExCore)\BepInEx.dll</HintPath>
+      <HintPath>$(ManagedDir)\BepInEx.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <!-- Facade assembly that BepInEx's BaseUnityPlugin was compiled against;
@@ -40,5 +41,12 @@
       <Private>false</Private>
     </Reference>
   </ItemGroup>
+
+  <!-- Fail early with actionable guidance if lib\ has not been provisioned,
+       instead of a cryptic "could not resolve reference" for each DLL. -->
+  <Target Name="CheckVendoredReferences" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(ManagedDir)\BepInEx.dll') Or !Exists('$(ManagedDir)\Assembly-CSharp.dll')"
+           Text="Reference assemblies missing from lib\. Run ./provision-refs.ps1 first (it downloads BepInEx and copies the game's Unity/Assembly-CSharp DLLs from the Steam install)." />
+  </Target>
 
 </Project>
